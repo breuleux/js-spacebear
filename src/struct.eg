@@ -1,0 +1,100 @@
+
+provide: make-struct, struct
+
+var _id = 0
+
+
+next-id{} =
+   _id += 1
+   _id
+
+
+make-struct{name, fields, methods} =
+
+   make{values} =
+      rval = Object.create{proto}
+      items{fields} each {name, settings} ->
+         v = if{Object.has-property.call{values, name}, values[name], settings.default}
+         if settings.transform:
+            try:
+               rval[name] = settings.transform{v}
+            catch err:
+               throw E.struct{'''Error setting '{name}': {err.message}''', err}
+         else:
+            rval[name] = v
+      Object.define-property{proto, "::id"} with {
+         value = next-id{}
+         enumerable = false
+      }
+      Object.freeze{rval}
+
+   make.field-names = keys{fields}
+   make.struct-name = name
+   make.to-string{} = '{name}\{{this.field-names.join{", "}}\}'
+
+   proto = Object.create{null}
+   proto.constructor = make
+   items{methods} each {name, method} ->
+      proto[name] = method
+
+   make
+
+
+macro{make-struct} struct{`{^name, ^body}`} =
+   #symbol{sname} or #value{sname} = name
+   #multi! #multi{*stmts} = body
+
+   ms = @deps["make-struct"]
+
+   fields = #data{}
+   methods = `methods`
+   results = #splice{
+      `methods = {=}`
+   }
+   stmts each match stmt ->
+      `^lhs = ^rhs` or lhs and rhs is null ->
+         pc = @PatternCompiler{lhs, @, opt} where opt =
+            @pattern_handlers.build_object & {
+               assign{#symbol{@camelCase! v} or #value{v}, value} =
+                  #do{#assign{`[^methods][^=v]`, value}}
+               declare{vars} = {}
+               wrap_target{match} =
+                  `^args -> ^body` ->
+                     {env => other_env} = body
+                     it = #symbol{"@"} & {env = other_env}
+                     it2 = #symbol{"self"} & {env = other_env}
+                     `_lambda{
+                        ^args
+                        splice: [let ^it = this, let ^it2 = this]
+                        ^body
+                        ^=null
+                        ^=false
+                     }`
+                  other ->
+                     other
+               success{x} =
+                  #multi{}
+            }
+         pc.compile{}
+
+         match pc:
+            {arguments => {}, vars => match} ->
+               {v} and match is rhs ->
+                  do: tr = `transform{x} = [^lhs = x, ^v]`
+                  null? ->
+                     fields.push with `^v = {^tr}`
+                  else ->
+                     fields.push with `^v = {^tr, default = ^rhs}`
+               else ->
+                  throw E.syntax.struct with
+                     '''Pattern '{@gettext{lhs}}' should define exactly one variable.'''
+                     node = lhs
+            {=> arguments} when rhs == null ->
+               throw E.syntax.struct with
+                  '''Missing method body for: '{@gettext{lhs}}' '''
+                  node = lhs
+            {=> arguments} ->
+               results.push with pc.extract_from_rhs{rhs}
+
+   results.push with `^name = [^ms]{^=sname, ^fields, methods}`
+   results
