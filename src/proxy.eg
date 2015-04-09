@@ -1,0 +1,33 @@
+
+provide: proxy
+
+
+proxy{obj, listener} =
+   if not obj or not obj["::id"]:
+      return obj
+   if obj["::source"]:
+      return proxy{obj["::source"], listener}
+
+   cons = obj.constructor
+   prox = Object.create{null}
+   prox["::source"] = obj
+   id = obj["::id"]
+
+   cons.field-names each name ->
+      Object.define-property{prox, name} with {
+         .get{} =
+            listener.read{id, name}
+            proxy{obj[name], listener}
+         .set{new-value} =
+            listener.write{id, name, new-value}
+      }
+
+   cons.method-names each name ->
+      prox[name] = obj[name]
+      ;; Object.define-property{prox, name} with {
+      ;;    .get{} =
+      ;;       obj[name].bind{prox}
+      ;; }
+
+   prox
+

@@ -22,13 +22,14 @@ make-struct{name, fields, methods} =
                throw E.struct{'''Error setting '{name}': {err.message}''', err}
          else:
             rval[name] = v
-      Object.define-property{proto, "::id"} with {
+      Object.define-property{rval, "::id"} with {
          value = next-id{}
          enumerable = false
       }
       Object.freeze{rval}
 
    make.field-names = keys{fields}
+   make.method-names = keys{methods}
    make.struct-name = name
    make.to-string{} = '{name}\{{this.field-names.join{", "}}\}'
 
