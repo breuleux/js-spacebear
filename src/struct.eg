@@ -1,5 +1,7 @@
 
-provide: make-struct, struct
+provide:
+   make-struct, struct
+   proxy, fork, patch
 
 var _id = 0
 
@@ -9,34 +11,158 @@ next-id{} =
    _id
 
 
-make-struct{name, fields, methods} =
+maybe-freeze{obj, mutable} =
+   if not mutable and Object.freeze:
+      Object.freeze{obj}
+   else:
+      obj
 
-   make{values} =
+
+proxy{obj, listener} =
+   if not obj or not obj["::id"]:
+      return obj
+   if obj["::source"]:
+      return proxy{obj["::source"], listener}
+   return obj.proxy{listener}
+
+fork{match obj, mutable = false} =
+   null? or undefined? or String? or Number? or Boolean? ->
+      obj
+   else ->
+      obj.fork{mutable}
+
+patch{match obj, p} =
+   null? or undefined? or String? or Number? or Boolean? ->
+      obj
+   else ->
+      obj.patch{p}
+
+
+proto-zero = Object.create{null} &: {
+
+   proxy{listener} =
+      obj = this
+      cons = obj.constructor
+      prox = Object.create{null}
+      prox["::source"] = obj
+      cons.field-names each name ->
+         Object.define-property{prox, name} with {
+            .get{} =
+               listener.read{obj, name}
+               proxy{obj[name], listener}
+            .set{new-value} =
+               listener.write{obj, name, new-value}
+         }
+      cons.method-names each name ->
+         prox[name] = obj[name]
+      prox
+
+   fork{mutable = false} =
+      obj = this
+      cons = obj.constructor
+      rval = object.create{cons.proto}
+      cons.field-names each field ->
+         rval[field] = fork{obj[field], mutable}
+      rval["::id"] = obj["::id"]
+      rval["::mutable"] = mutable
+      maybe-freeze{rval, mutable}
+
+   patch{p} =
+      obj = this
+      if not obj["::mutable"]:
+         throw E.spacebear.patch with
+            'Cannot patch immutable object. Make a mutable fork first.'
+      if obj["::version"] === p.version:
+         return obj
+      obj["::version"] = p.version
+
+      cons = obj.constructor
+      var changes = false
+      match p[obj["::id"]]:
+         undefined? -> pass
+         xs ->
+            xs each
+               #update{field, _, value} ->
+                  changes = true
+                  obj[field] = obj.validate-field{field, value}
+
+      if changes:
+         obj.validate{}
+
+      cons.field-names each field ->
+         patch{obj[field], p}
+
+      obj
+
+}
+
+proto-array = Object.create{null} &: {
+
+   fork{mutable = false} =
+      pass
+
+   patch{p} =
+      pass
+
+}
+
+proto-map = Object.create{null} &: {
+
+   fork{mutable = false} =
+      pass
+
+   patch{p} =
+      pass
+
+}
+
+
+
+make-struct{name, fields, methods} =
+   cid = Symbol{name}
+
+   make{values, mutable = false} =
       rval = Object.create{proto}
       items{fields} each {name, settings} ->
          v = if{Object.has-property.call{values, name}, values[name], settings.default}
-         if settings.transform:
-            try:
-               rval[name] = settings.transform{v}
-            catch err:
-               throw E.struct{'''Error setting '{name}': {err.message}''', err}
-         else:
-            rval[name] = v
+         rval[name] = rval.validate-field{name, v}
+
       Object.define-property{rval, "::id"} with {
          value = next-id{}
          enumerable = false
       }
-      Object.freeze{rval}
+
+      Object.define-property{rval, "constructor"} with {
+         value = make
+         enumerable = false
+      }
+
+      rval.validate{}
+      if not mutable and Object.freeze:
+         Object.freeze{rval}
+      else:
+         rval
 
    make.field-names = keys{fields}
    make.method-names = keys{methods}
    make.struct-name = name
    make.to-string{} = '{name}\{{this.field-names.join{", "}}\}'
 
-   proto = Object.create{null}
-   proto.constructor = make
+   proto = Object.create{proto-zero}
    items{methods} each {name, method} ->
       proto[name] = method
+
+   proto.validate-field{name, value} =
+      settings = fields[name]
+      if settings.validate:
+         try:
+            settings.validate{value}
+         catch err:
+            throw E.struct{'''Error setting '{name}': {err.message}''', err}
+      else:
+         value
+
+   proto.validate or= {} -> this
 
    make
 
@@ -81,7 +207,7 @@ macro{make-struct} struct{`{^name, ^body}`} =
          match pc:
             {arguments => {}, vars => match} ->
                {v} and match is rhs ->
-                  do: tr = `transform{x} = [^lhs = x, ^v]`
+                  do: tr = `validate{x} = [^lhs = x, ^v]`
                   null? ->
                      fields.push with `^v = {^tr}`
                   else ->
