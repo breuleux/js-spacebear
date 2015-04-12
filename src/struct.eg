@@ -77,16 +77,17 @@ proto-zero = Object.create{null} &: {
       obj["::version"] = p.version
 
       cons = obj.constructor
-      var changes = false
+      ;; var changes = false
       match p[obj["::id"]]:
          undefined? -> pass
          items! [each {field, match}] ->
             #update{value} ->
-               changes = true
-               obj[field] = obj.validate-field{field, value}
+               ;; changes = true
+               ;; obj[field] = obj.validate-field{field, value}
+               obj[field] = value
 
-      if changes:
-         obj.validate{}
+      ;; if changes:
+      ;;    obj.validate{}
 
       cons.field-names each field ->
          patch{obj[field], p}
@@ -144,12 +145,13 @@ make-struct{name, fields, methods} =
       rval = Object.create{proto}
       items{fields} each {name, settings} ->
          v = if{Object.has-property.call{values, name}, values[name], settings.default}
-         rval[name] = rval.validate-field{name, v}
+         ;; rval[name] = rval.validate-field{name, v}
+         rval[name] = v
 
       rval["::id"] = next-id{}
       rval["::version"] = 1
 
-      rval.validate{}
+      ;; rval.validate{}
       if not mutable and Object.freeze:
          Object.freeze{rval}
       else:
@@ -164,15 +166,15 @@ make-struct{name, fields, methods} =
    items{methods} each {name, method} ->
       proto[name] = method
 
-   proto.validate-field{name, value} =
-      settings = fields[name]
-      if settings.validate:
-         try:
-            settings.validate{value}
-         catch err:
-            throw E.struct{'''Error setting '{name}': {err.message}''', err}
-      else:
-         value
+   ;; proto.validate-field{name, value} =
+   ;;    settings = fields[name]
+   ;;    if settings.validate:
+   ;;       try:
+   ;;          settings.validate{value}
+   ;;       catch err:
+   ;;          throw E.struct{'''Error setting '{name}': {err.message}''', err}
+   ;;    else:
+   ;;       value
 
    Object.define-property{proto, "::version"} with {
       value = 1
@@ -180,7 +182,7 @@ make-struct{name, fields, methods} =
       enumerable = false
    }
 
-   proto.validate or= {} -> this
+   ;; proto.validate or= {} -> this
 
    Object.define-property{proto, "constructor"} with {
       value = make
