@@ -60,16 +60,16 @@ proto-zero = Object.create{null} &: {
    fork{mutable = false} =
       obj = this
       cons = obj.constructor
-      rval = object.create{cons.proto}
+      rval = Object.create{cons.proto}
       cons.field-names each field ->
          rval[field] = fork{obj[field], mutable}
       rval["::id"] = obj["::id"]
-      rval["::mutable"] = mutable
+      rval["::version"] = 1
       maybe-freeze{rval, mutable}
 
    patch{p} =
       obj = this
-      if not obj["::mutable"]:
+      if Object.is-frozen{obj}:
          throw E.spacebear.patch with
             'Cannot patch immutable object. Make a mutable fork first.'
       if obj["::version"] === p.version:
@@ -80,11 +80,10 @@ proto-zero = Object.create{null} &: {
       var changes = false
       match p[obj["::id"]]:
          undefined? -> pass
-         xs ->
-            xs each
-               #update{field, _, value} ->
-                  changes = true
-                  obj[field] = obj.validate-field{field, value}
+         items! [each {field, match}] ->
+            #update{value} ->
+               changes = true
+               obj[field] = obj.validate-field{field, value}
 
       if changes:
          obj.validate{}
@@ -98,6 +97,19 @@ proto-zero = Object.create{null} &: {
 
 proto-array = Object.create{null} &: {
 
+   ;; .get{i} =
+   ;;    this._a[i]
+
+   ;; .set{i, value} =
+   ;;    this._a[i] = this.validate-element{value}
+
+   ;; splice{i, j, *elements} =
+   ;;    values = elements each value -> this.validate-element{value}
+   ;;    this._a.splice{i, j}
+
+   proxy{listener} =
+      pass
+
    fork{mutable = false} =
       pass
 
@@ -105,6 +117,13 @@ proto-array = Object.create{null} &: {
       pass
 
 }
+
+make-array{elements} =
+   pass
+
+
+
+
 
 proto-map = Object.create{null} &: {
 
@@ -127,15 +146,8 @@ make-struct{name, fields, methods} =
          v = if{Object.has-property.call{values, name}, values[name], settings.default}
          rval[name] = rval.validate-field{name, v}
 
-      Object.define-property{rval, "::id"} with {
-         value = next-id{}
-         enumerable = false
-      }
-
-      Object.define-property{rval, "constructor"} with {
-         value = make
-         enumerable = false
-      }
+      rval["::id"] = next-id{}
+      rval["::version"] = 1
 
       rval.validate{}
       if not mutable and Object.freeze:
@@ -162,7 +174,24 @@ make-struct{name, fields, methods} =
       else:
          value
 
+   Object.define-property{proto, "::version"} with {
+      value = 1
+      writable = true
+      enumerable = false
+   }
+
    proto.validate or= {} -> this
+
+   Object.define-property{proto, "constructor"} with {
+      value = make
+      enumerable = false
+   }
+
+   make.proto = proto
+
+   make["::check"]{match} =
+      {constructor => === make} -> true
+      else -> false
 
    make
 
