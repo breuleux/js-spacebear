@@ -12,6 +12,8 @@ require:
    "../src/struct" ->
       make-struct, read-proxy
       changed-relevantly
+   "../src/util" ->
+      ID
 
 
 struct Person:
@@ -28,10 +30,12 @@ struct Person:
 alice = Person{name = .alice, age = 51}
 bob = Person{name = .bob, age = 56}
 clara = Person{name = .clara, age = 20, mother = alice, father = bob}
+donald = Person{name = .donald, age = 10, mother = alice, father = alice}
 
-aid = alice["::id"]
-bid = bob["::id"]
-cid = clara["::id"]
+aid = alice[ID]
+bid = bob[ID]
+cid = clara[ID]
+did = donald[ID]
 
 describe "structs":
 
@@ -171,6 +175,16 @@ describe "patch":
       @clara.patch{@data}
       assert @clara.name == .clairette
       assert @clara.mother.age == 21
+
+   it "updates all instances of an object":
+      @data = {=}
+      @donald = donald.fork{true}
+      @donaldp = @donald.write-proxy{@data}
+      @donaldp.mother.age = 21
+      @donald.patch{@data}
+      ;; donald's mother is also his father
+      assert @donald.mother.age == 21
+      assert @donald.father.age == 21
 
 
 describe "changed-relevantly":

@@ -1,16 +1,13 @@
 
+require:
+   "./util" ->
+      tuck, next-id, ID, VERSION, SOURCE
+
 provide:
    make-struct, struct
    read-proxy, write-proxy
    fork, patch
    changed-relevantly
-
-var _id = 0
-
-
-next-id{} =
-   _id += 1
-   _id
 
 
 maybe-freeze{obj, mutable} =
@@ -19,27 +16,20 @@ maybe-freeze{obj, mutable} =
    else:
       obj
 
-set-not-enum{obj, name, value, writable = true} =
-   Object.define-property{obj, name} with {
-      value = value
-      enumerable = false
-      writable = writable
-   }
-
 
 
 read-proxy{obj, storage, key = true} =
-   if not obj or not obj["::id"]:
+   if not obj or not obj[ID]:
       return obj
-   if obj["::source"]:
-      return read-proxy{obj["::source"], storage, key}
+   if obj[SOURCE]:
+      return read-proxy{obj[SOURCE], storage, key}
    return obj.read-proxy{storage, key}
 
 write-proxy{obj, storage} =
-   if not obj or not obj["::id"]:
+   if not obj or not obj[ID]:
       return obj
-   if obj["::source"]:
-      return write-proxy{obj["::source"], storage}
+   if obj[SOURCE]:
+      return write-proxy{obj[SOURCE], storage}
    return obj.write-proxy{storage}
 
 fork{match obj, mutable = false} =
@@ -56,7 +46,7 @@ patch{match obj, p} =
 
 changed-relevantly{tracks, patch} =
    items{tracks} each {id, reads} ->
-      obj = reads["::source"]
+      obj = reads[SOURCE]
       if obj.changed-relevantly{reads, patch[id]}:
          return true
    false
@@ -78,17 +68,17 @@ proto-zero = Object.create{null} &: {
 
    generic-proxy{target, proto, field-wrapper} =
       obj = this
-      id = obj["::id"]
+      id = obj[ID]
       target[id] or= Object.create{null}
       obj-data = target[id]
       cons = obj.constructor
       prox = Object.create{proto-read-proxy}
-      set-not-enum{prox, "::source", obj}
-      set-not-enum{obj-data, "::source", obj}
+      tuck{prox, SOURCE, obj}
+      tuck{obj-data, SOURCE, obj}
       cons.field-names each name ->
          field-wrapper{prox, name, obj-data}
       cons.method-names each name ->
-         set-not-enum{prox, name, obj[name]}
+         tuck{prox, name, obj[name]}
       prox
 
    read-proxy{tracks, key = true} =
@@ -122,8 +112,8 @@ proto-zero = Object.create{null} &: {
       rval = Object.create{cons.proto}
       cons.field-names each field ->
          rval[field] = fork{obj[field], mutable}
-      set-not-enum{rval, "::id", obj["::id"]}
-      set-not-enum{rval, "::version", 1}
+      tuck{rval, ID, obj[ID]}
+      tuck{rval, VERSION, 1}
       maybe-freeze{rval, mutable}
 
    patch{p} =
@@ -131,12 +121,12 @@ proto-zero = Object.create{null} &: {
       if Object.is-frozen{obj}:
          throw E.spacebear.patch with
             'Cannot patch immutable object. Make a mutable fork first.'
-      if obj["::version"] === p.version:
+      if obj[VERSION] === p.version:
          return obj
-      set-not-enum{obj, "::version", p.version}
+      tuck{obj, VERSION, p.version}
 
       cons = obj.constructor
-      match p[obj["::id"]]:
+      match p[obj[ID]]:
          undefined? -> pass
          items! [each {field, match}] ->
             #update{value} ->
@@ -171,7 +161,7 @@ proto-zero = Object.create{null} &: {
 
 ;;    proxy{listener} =
 ;;       obj = this
-;;       prox["::source"] = obj
+;;       prox[SOURCE] = obj
 ;;       prox.get{i} =
 ;;          listener.read{obj, i}
 ;;          proxy{obj[i], listener}
@@ -242,8 +232,8 @@ make-struct{name, fields, methods} =
          v = if{Object.has-property.call{values, name}, values[name], settings.default}
          rval[name] = v
 
-      set-not-enum{rval, "::id", next-id{}}
-      set-not-enum{rval, "::version", 1}
+      tuck{rval, ID, next-id{}}
+      tuck{rval, VERSION, 1}
 
       if not mutable and Object.freeze:
          Object.freeze{rval}
@@ -269,7 +259,7 @@ make-struct{name, fields, methods} =
    ;;    else:
    ;;       value
 
-   Object.define-property{proto, "::version"} with {
+   Object.define-property{proto, VERSION} with {
       value = 1
       writable = true
       enumerable = false

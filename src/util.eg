@@ -1,0 +1,22 @@
+
+provide:
+   tuck
+   ID, VERSION, SOURCE
+   next-id
+
+tuck{obj, name, value, writable = true} =
+   Object.define-property{obj, name} with {
+      value = value
+      enumerable = false
+      writable = writable
+   }
+
+ID = Symbol{.id}
+VERSION = Symbol{.version}
+SOURCE = Symbol{.source}
+
+var _id = 0
+
+next-id{} =
+   _id += 1
+   _id
