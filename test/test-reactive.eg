@@ -1,0 +1,101 @@
+
+require-macros:
+   "../src/struct" ->
+      struct
+   earl-mocha ->
+      describe, it, before, after, before-each, after-each
+      xdescribe, xit
+      assert, asserts
+      expect-error
+
+require:
+   "../src/struct" ->
+      make-struct, read-proxy
+      changed-relevantly
+   "../src/reactive" ->
+      Reactive, reactive-function, update, System
+
+
+struct Person:
+   name, age, mother, father
+   say-name{} =
+      'My name is {@name}!'
+   get-older{n = 1} =
+      @age += n
+
+alice = Person{name = .alice, age = 51}
+bob = Person{name = .bob, age = 56}
+clara = Person{name = .clara, age = 20, mother = alice, father = bob}
+
+aid = alice[ID]
+bid = bob[ID]
+cid = clara[ID]
+
+count-calls{f} =
+   rval{*args} =
+      rval.count += 1
+      f.apply{this, args}
+   rval.count = 0
+   rval
+
+
+describe "utilities":
+
+   it "count-calls":
+      count-calls! f{x, y} = x + y
+      assert f{10, 20} == 30
+      assert f.count == 1
+      assert f{7, 8} == 15
+      assert f.count == 2
+
+
+describe "Reactive functions":
+
+   it "called through System":
+      reactive-function! fn{person} =
+         {greeting = 'Hello, my name is {person.name}!'}
+      sys = System{clara, fn}
+      assert sys.value == {greeting = 'Hello, my name is clara!'}
+
+   it "can be updated":
+      reactive-function! fn{person} =
+         {greeting = 'Hello, my name is {person.name}!'}
+
+      sys = System{clara, fn}
+      assert sys.value == {greeting = 'Hello, my name is clara!'}
+
+      sys.transact with {clara} ->
+         clara.name = "clairette"
+      assert sys.value == {greeting = 'Hello, my name is clairette!'}
+
+   it "is parsimonious":
+      count-calls! reactive-function! fn{person} =
+         {greeting = 'Hello, my name is {person.name}!'}
+
+      assert fn.orig.count == 0
+
+      ;; Called to initialize
+      sys = System{clara, fn}
+      assert fn.orig.count == 1
+
+      ;; Change is irrelevant because fn does not use age,
+      ;; so fn should not be called again.
+      sys.transact with {clara} ->
+         clara.age = 21
+      assert fn.orig.count == 1
+
+      ;; Change is relevant, fn should be called
+      sys.transact with {clara} ->
+         clara.name = "clairette"
+      assert fn.orig.count == 2
+
+      ;; Irrelevant change again
+      sys.transact with {clara} ->
+         clara.mother = clara.father
+      assert fn.orig.count == 2
+
+      ;; Relevant change again
+      sys.transact with {clara} ->
+         clara.name = "bob"
+      assert fn.orig.count == 3
+

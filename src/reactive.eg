@@ -1,0 +1,137 @@
+
+
+require:
+   "./struct" ->
+      read-proxy, write-proxy, patch, fork
+      changed-relevantly
+   "./util" ->
+      tuck, identify, ID, FORKID, VERSION
+
+provide:
+   Reactive, reactive-function, update
+   args-key
+   System
+
+
+arg-key{match x} =
+   String? ->
+      "S" + x
+   null? or undefined? or Number? or Boolean? ->
+      "P" + String{x}
+   identify! x ->
+      "O" + String{x[ID]} + ":" + String{x[FORKID] or ""}
+
+args-key{args} =
+   args.map{arg-key}.join{"\x00"}
+
+
+class CachedResult:
+
+   constructor{@value, @deps, @version} =
+      @inspect{@value}
+      @children = {}
+
+   inspect{match v} =
+      do:
+         check{replace, match obj} =
+            {"::reactive" => r, "::arguments" => args, "::cached" => cached} ->
+               @children.push with {v, r, args, cached, replace}
+            else ->
+               @inspect{obj}
+      null? or undefined? or String? or Number? or Boolean? ->
+         pass
+      {=> iterate-properties} ->
+         v.iterate-properties{} each {replace, obj} ->
+            check{replace, obj}
+      when Object.get-prototype-of{v} in {Object.prototype, null} ->
+         items{v} each {prop, obj} ->
+            check{replace, obj} where
+               replace{new-obj} = v[prop] = new-obj
+      else ->
+         throw E.reactive.cannot_inspect with
+            '''Do not know how to inspect object '{v}' to extract its reactive elements.'''
+
+   update{the-patch} =
+      match the-patch[VERSION]:
+         == @version ->
+            true
+         == [@version + 1] ->
+            dirty = changed-relevantly{@deps, the-patch}
+            if dirty:
+               false
+            else:
+               @children each {v, r, args, cached, replace} ->
+                  if not cached.update{the-patch}:
+                     replace with r.update{the-patch, args}
+               @version += 1
+               true
+         else ->
+            ;; At least one patch was skipped, so we have to recompile
+            false
+
+
+class Reactive:
+
+   constructor{@renderfn} =
+      @argmap = {=}
+
+   update{the-patch, args} =
+      key = args-key{args}
+      match @argmap[key]:
+         undefined? ->
+            @render{args, key}
+         cached ->
+            match cached.update{the-patch}:
+               true? ->
+                  cached.value
+               false? ->
+                  @render{args, key}
+
+   render{args, key = args-key{args}} =
+      deps = Object.create{null}
+      var version = null
+      pargs = args each arg ->
+         version or= arg[VERSION]
+         read-proxy{arg, deps}
+      res = @renderfn.apply{@, pargs}
+      cache = CachedResult{res, deps, version}
+      tuck{res, "::reactive", [@]}
+      tuck{res, "::arguments", args}
+      tuck{res, "::cached", cache}
+      @argmap[key] = cache
+      res
+
+
+class System:
+
+   constructor{@origin, @render} =
+      @basis = fork{@origin, true}
+      @value = @render{@basis}
+      @version = 1
+
+   update{the-patch} =
+      patch{@basis, the-patch}
+      @value = update{@value, the-patch, {@basis}}
+      @value
+
+   transact{fn, Array! roots = @basis} =
+      let patch = Object.create{null}
+      proxies = roots each root -> write-proxy{root, patch}
+      fn.apply{this, proxies}
+      @version += 1
+      patch[VERSION] = @version
+      @update{patch}
+
+
+
+reactive-function{render} =
+   r = Reactive{render}
+   rval{*args} =
+      r.render{args}
+   rval.orig = render
+   rval
+
+update{previous, the-patch, args = previous["::arguments"]} =
+   previous["::reactive"].update{the-patch, args}
+
+
