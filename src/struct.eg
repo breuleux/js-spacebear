@@ -28,12 +28,12 @@ set-not-enum{obj, name, value, writable = true} =
 
 
 
-read-proxy{obj, storage} =
+read-proxy{obj, storage, key = true} =
    if not obj or not obj["::id"]:
       return obj
    if obj["::source"]:
-      return read-proxy{obj["::source"], storage}
-   return obj.read-proxy{storage}
+      return read-proxy{obj["::source"], storage, key}
+   return obj.read-proxy{storage, key}
 
 write-proxy{obj, storage} =
    if not obj or not obj["::id"]:
@@ -64,8 +64,8 @@ changed-relevantly{tracks, patch} =
 
 
 proto-read-proxy = Object.create{null} &: {
-   reprox{tracks} =
-      read-proxy{this, tracks}
+   reprox{tracks, key = true} =
+      read-proxy{this, tracks, key}
 }
 
 proto-write-proxy = Object.create{null} &: {
@@ -91,14 +91,14 @@ proto-zero = Object.create{null} &: {
          set-not-enum{prox, name, obj[name]}
       prox
 
-   read-proxy{tracks} =
+   read-proxy{tracks, key = true} =
       obj = this
       this.generic-proxy{tracks, proto-read-proxy} with
          {prox, name, obj-data} ->
             Object.define-property{prox, name} with {
                .get{} =
-                  obj-data[name] = true
-                  read-proxy{obj[name], tracks}
+                  obj-data[name] = key
+                  read-proxy{obj[name], tracks, key}
                enumerable = true
             }
 

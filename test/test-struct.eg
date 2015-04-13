@@ -94,6 +94,15 @@ describe "read-proxy":
          aid => {age = true}
       }
 
+   it "can store a predetermined key":
+      @data = {=}
+      @clara = clara.read-proxy{@data, 1234}
+      {@clara.name, @clara.mother.age}
+      assert @data == {
+         cid => {name = 1234, mother = 1234}
+         aid => {age = 1234}
+      }
+
 
 describe "write-proxy":
 
