@@ -32,6 +32,12 @@ write-proxy{obj, storage} =
       return write-proxy{obj[SOURCE], storage}
    return obj.write-proxy{storage}
 
+deprox{x} =
+   if x and x[SOURCE]:
+      x[SOURCE]
+   else:
+      x
+
 fork{match obj, mutable = false} =
    null? or undefined? or String? or Number? or Boolean? ->
       obj
@@ -103,7 +109,7 @@ proto-zero = Object.create{null} &: {
                         '''Cannot access property '{name}' after setting it.'''
                   write-proxy{obj[name], patch}
                .set{new-value} =
-                  obj-data[name] = #update{new-value}
+                  obj-data[name] = #update{deprox{new-value}}
             }
 
    fork{mutable = false} =
