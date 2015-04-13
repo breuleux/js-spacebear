@@ -1,7 +1,7 @@
 
 require:
    "./util" ->
-      tuck, identify, ID, VERSION, SOURCE
+      tuck, identify, next-id, ID, FORKID, VERSION, SOURCE
 
 provide:
    make-struct, struct
@@ -113,6 +113,7 @@ proto-zero = Object.create{null} &: {
       cons.field-names each field ->
          rval[field] = fork{obj[field], mutable}
       tuck{rval, ID, obj[ID]}
+      tuck{rval, FORKID, next-id{}}
       tuck{rval, VERSION, 1}
       maybe-freeze{rval, mutable}
 
@@ -233,6 +234,7 @@ make-struct{name, fields, methods} =
          rval[name] = v
 
       identify{rval}
+      tuck{rval, FORKID, rval[ID]}
       tuck{rval, VERSION, 1}
 
       if not mutable and Object.freeze:

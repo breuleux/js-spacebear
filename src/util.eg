@@ -1,7 +1,7 @@
 
 provide:
    tuck
-   ID, VERSION, SOURCE
+   ID, FORKID, VERSION, SOURCE
    next-id, identify
 
 tuck{obj, name, value, writable = true} =
@@ -12,6 +12,7 @@ tuck{obj, name, value, writable = true} =
    }
 
 ID = Symbol{.id}
+FORKID = Symbol{.forkid}
 VERSION = Symbol{.version}
 SOURCE = Symbol{.source}
 
