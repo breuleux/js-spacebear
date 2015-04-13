@@ -1,7 +1,7 @@
 
 require:
    "./util" ->
-      tuck, next-id, ID, VERSION, SOURCE
+      tuck, identify, ID, VERSION, SOURCE
 
 provide:
    make-struct, struct
@@ -121,9 +121,9 @@ proto-zero = Object.create{null} &: {
       if Object.is-frozen{obj}:
          throw E.spacebear.patch with
             'Cannot patch immutable object. Make a mutable fork first.'
-      if obj[VERSION] === p.version:
+      if obj[VERSION] === p[VERSION]:
          return obj
-      tuck{obj, VERSION, p.version}
+      tuck{obj, VERSION, p[VERSION]}
 
       cons = obj.constructor
       match p[obj[ID]]:
@@ -232,7 +232,7 @@ make-struct{name, fields, methods} =
          v = if{Object.has-property.call{values, name}, values[name], settings.default}
          rval[name] = v
 
-      tuck{rval, ID, next-id{}}
+      identify{rval}
       tuck{rval, VERSION, 1}
 
       if not mutable and Object.freeze:

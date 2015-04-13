@@ -2,7 +2,7 @@
 provide:
    tuck
    ID, VERSION, SOURCE
-   next-id
+   next-id, identify
 
 tuck{obj, name, value, writable = true} =
    Object.define-property{obj, name} with {
@@ -20,3 +20,11 @@ var _id = 0
 next-id{} =
    _id += 1
    _id
+
+identify{match x} =
+   when x[ID] ->
+      x
+   else ->
+      tuck{x, ID, next-id{}}
+      x
+
