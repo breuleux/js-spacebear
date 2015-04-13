@@ -1,7 +1,9 @@
 
 provide:
    make-struct, struct
-   proxy, fork, patch
+   read-proxy, write-proxy
+   fork, patch
+   changed-relevantly
 
 var _id = 0
 
@@ -17,13 +19,28 @@ maybe-freeze{obj, mutable} =
    else:
       obj
 
+set-not-enum{obj, name, value, writable = true} =
+   Object.define-property{obj, name} with {
+      value = value
+      enumerable = false
+      writable = writable
+   }
 
-proxy{obj, listener} =
+
+
+read-proxy{obj, storage} =
    if not obj or not obj["::id"]:
       return obj
    if obj["::source"]:
-      return proxy{obj["::source"], listener}
-   return obj.proxy{listener}
+      return read-proxy{obj["::source"], storage}
+   return obj.read-proxy{storage}
+
+write-proxy{obj, storage} =
+   if not obj or not obj["::id"]:
+      return obj
+   if obj["::source"]:
+      return write-proxy{obj["::source"], storage}
+   return obj.write-proxy{storage}
 
 fork{match obj, mutable = false} =
    null? or undefined? or String? or Number? or Boolean? ->
@@ -37,25 +54,67 @@ patch{match obj, p} =
    else ->
       obj.patch{p}
 
+changed-relevantly{tracks, patch} =
+   items{tracks} each {id, reads} ->
+      obj = reads["::source"]
+      if obj.changed-relevantly{reads, patch[id]}:
+         return true
+   false
+
+
+
+proto-read-proxy = Object.create{null} &: {
+   reprox{tracks} =
+      read-proxy{this, tracks}
+}
+
+proto-write-proxy = Object.create{null} &: {
+   reprox{patch} =
+      write-proxy{this, patch}
+}
+
 
 proto-zero = Object.create{null} &: {
 
-   proxy{listener} =
+   generic-proxy{target, proto, field-wrapper} =
       obj = this
+      id = obj["::id"]
+      target[id] or= Object.create{null}
+      obj-data = target[id]
       cons = obj.constructor
-      prox = Object.create{null}
-      prox["::source"] = obj
+      prox = Object.create{proto-read-proxy}
+      set-not-enum{prox, "::source", obj}
+      set-not-enum{obj-data, "::source", obj}
       cons.field-names each name ->
-         Object.define-property{prox, name} with {
-            .get{} =
-               listener.read{obj, name}
-               proxy{obj[name], listener}
-            .set{new-value} =
-               listener.write{obj, name, new-value}
-         }
+         field-wrapper{prox, name, obj-data}
       cons.method-names each name ->
-         prox[name] = obj[name]
+         set-not-enum{prox, name, obj[name]}
       prox
+
+   read-proxy{tracks} =
+      obj = this
+      this.generic-proxy{tracks, proto-read-proxy} with
+         {prox, name, obj-data} ->
+            Object.define-property{prox, name} with {
+               .get{} =
+                  obj-data[name] = true
+                  read-proxy{obj[name], tracks}
+               enumerable = true
+            }
+
+   write-proxy{patch} =
+      obj = this
+      this.generic-proxy{patch, proto-write-proxy} with
+         {prox, name, obj-data} ->
+            Object.define-property{prox, name} with {
+               .get{} =
+                  if obj-data[name]:
+                     throw E.invalid_access with
+                        '''Cannot access property '{name}' after setting it.'''
+                  write-proxy{obj[name], patch}
+               .set{new-value} =
+                  obj-data[name] = #update{new-value}
+            }
 
    fork{mutable = false} =
       obj = this
@@ -63,8 +122,8 @@ proto-zero = Object.create{null} &: {
       rval = Object.create{cons.proto}
       cons.field-names each field ->
          rval[field] = fork{obj[field], mutable}
-      rval["::id"] = obj["::id"]
-      rval["::version"] = 1
+      set-not-enum{rval, "::id", obj["::id"]}
+      set-not-enum{rval, "::version", 1}
       maybe-freeze{rval, mutable}
 
    patch{p} =
@@ -74,67 +133,103 @@ proto-zero = Object.create{null} &: {
             'Cannot patch immutable object. Make a mutable fork first.'
       if obj["::version"] === p.version:
          return obj
-      obj["::version"] = p.version
+      set-not-enum{obj, "::version", p.version}
 
       cons = obj.constructor
-      ;; var changes = false
       match p[obj["::id"]]:
          undefined? -> pass
          items! [each {field, match}] ->
             #update{value} ->
-               ;; changes = true
-               ;; obj[field] = obj.validate-field{field, value}
                obj[field] = value
-
-      ;; if changes:
-      ;;    obj.validate{}
 
       cons.field-names each field ->
          patch{obj[field], p}
 
       obj
 
-}
-
-proto-array = Object.create{null} &: {
-
-   ;; .get{i} =
-   ;;    this._a[i]
-
-   ;; .set{i, value} =
-   ;;    this._a[i] = this.validate-element{value}
-
-   ;; splice{i, j, *elements} =
-   ;;    values = elements each value -> this.validate-element{value}
-   ;;    this._a.splice{i, j}
-
-   proxy{listener} =
-      pass
-
-   fork{mutable = false} =
-      pass
-
-   patch{p} =
-      pass
+   changed-relevantly{tracks, patch} =
+      items{patch or {=}} each
+         {name, _} when tracks[name] ->
+            return true
+      return false
 
 }
 
-make-array{elements} =
-   pass
+
+
+;; proto-array = Object.create{null} &: {
+
+;;    .get{i} =
+;;       this._a[i]
+
+;;    ;; .set{i, value} =
+;;    ;;    this._a[i] = this.validate-element{value}
+
+;;    ;; splice{i, j, *elements} =
+;;    ;;    values = elements each value -> this.validate-element{value}
+;;    ;;    this._a.splice{i, j}
+
+;;    proxy{listener} =
+;;       obj = this
+;;       prox["::source"] = obj
+;;       prox.get{i} =
+;;          listener.read{obj, i}
+;;          proxy{obj[i], listener}
+;;       prox.set{i, value} =
+;;          listener.write{obj, i, value}
+;;       prox.splice{i, j, *elements} =
+;;          if j != elements.length:
+;;             listener.write{obj, .length, obj.length - j + elements.length}
+;;          listener.splice{i, j, elements}
+
+;;       Object.define-property{prox, .length} with {
+;;          .get{} =
+;;             listener.read{obj, .length}
+;;             obj.length
+;;       }
+
+
+;;       obj = this
+;;       cons = obj.constructor
+;;       prox = Object.create{null}
+;;       cons.field-names each name ->
+;;          Object.define-property{prox, name} with {
+;;             .get{} =
+;;                listener.read{obj, name}
+;;                proxy{obj[name], listener}
+;;             .set{new-value} =
+;;                listener.write{obj, name, new-value}
+;;          }
+;;       cons.method-names each name ->
+;;          prox[name] = obj[name]
+;;       prox
+
+;;    fork{mutable = false} =
+;;       pass
+
+;;    patch{p} =
+;;       pass
+
+;; }
+
+
+;; make-array{elements, mutable = false} =
+;;    rval = Object.create{proto-array}
+;;    rval._a = maybe-freeze{clone{elements}}
+;;    maybe-freeze{rval}
 
 
 
 
+;; proto-map = Object.create{null} &: {
 
-proto-map = Object.create{null} &: {
+;;    fork{mutable = false} =
+;;       pass
 
-   fork{mutable = false} =
-      pass
+;;    patch{p} =
+;;       pass
 
-   patch{p} =
-      pass
-
-}
+;; }
 
 
 
@@ -145,13 +240,11 @@ make-struct{name, fields, methods} =
       rval = Object.create{proto}
       items{fields} each {name, settings} ->
          v = if{Object.has-property.call{values, name}, values[name], settings.default}
-         ;; rval[name] = rval.validate-field{name, v}
          rval[name] = v
 
-      rval["::id"] = next-id{}
-      rval["::version"] = 1
+      set-not-enum{rval, "::id", next-id{}}
+      set-not-enum{rval, "::version", 1}
 
-      ;; rval.validate{}
       if not mutable and Object.freeze:
          Object.freeze{rval}
       else:
