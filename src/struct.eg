@@ -5,7 +5,7 @@ require:
 
 provide:
    make-struct, struct
-   read-proxy, write-proxy
+   read-proxy, write-proxy, deprox
    fork, patch
    changed-relevantly
 

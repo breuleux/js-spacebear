@@ -2,6 +2,7 @@
 
 require:
    "./struct" ->
+      deprox
       read-proxy, write-proxy, patch, fork
       changed-relevantly
    "./util" ->
@@ -18,7 +19,7 @@ arg-key{match x} =
       "S" + x
    null? or undefined? or Number? or Boolean? ->
       "P" + String{x}
-   identify! x ->
+   deprox! identify! x ->
       "O" + String{x[ID]} + ":" + String{x[FORKID] or ""}
 
 args-key{args} =
@@ -27,17 +28,22 @@ args-key{args} =
 
 class CachedResult:
 
-   constructor{@value, @deps, @version} =
-      @inspect{@value}
+   constructor{@value, @deps, @version, patch = null} =
       @children = {}
+      @walk{@value, patch}
 
-   inspect{match v} =
+   walk{match v, patch = null} =
       do:
          check{replace, match obj} =
             {"::reactive" => r, "::arguments" => args, "::cached" => cached} ->
-               @children.push with {v, r, args, cached, replace}
+               if patch:
+                  new-value = r.update{patch, args}
+                  replace{new-value}
+                  @children.push with {v, r, args, r["::cached"], replace}
+               else:
+                  @children.push with {v, r, args, cached, replace}
             else ->
-               @inspect{obj}
+               @walk{obj, patch}
       null? or undefined? or String? or Number? or Boolean? ->
          pass
       {=> iterate-properties} ->
@@ -48,21 +54,23 @@ class CachedResult:
             check{replace, obj} where
                replace{new-obj} = v[prop] = new-obj
       else ->
-         throw E.reactive.cannot_inspect with
-            '''Do not know how to inspect object '{v}' to extract its reactive elements.'''
+         throw E.reactive.cannot_walk with
+            '''Do not know how to walk object '{v}' to extract its reactive elements.'''
 
    update{the-patch} =
       match the-patch[VERSION]:
-         == @version ->
+         [== @version] ->
             true
-         == [@version + 1] ->
+         [== [@version + 1]] ->
             dirty = changed-relevantly{@deps, the-patch}
             if dirty:
                false
             else:
-               @children each {v, r, args, cached, replace} ->
+               @children each data and {v, r, args, cached, replace} ->
                   if not cached.update{the-patch}:
-                     replace with r.update{the-patch, args}
+                     new-value = r.update{the-patch, args}
+                     replace{new-value}
+                     data[3] = new-value["::cached"]
                @version += 1
                true
          else ->
@@ -75,26 +83,28 @@ class Reactive:
    constructor{@renderfn} =
       @argmap = {=}
 
-   update{the-patch, args} =
+   update{the-patch = null, args} =
       key = args-key{args}
       match @argmap[key]:
          undefined? ->
             @render{args, key}
+         cached when not the-patch ->
+            cached.value
          cached ->
             match cached.update{the-patch}:
                true? ->
                   cached.value
                false? ->
-                  @render{args, key}
+                  @render{args, key, the-patch}
 
-   render{args, key = args-key{args}} =
+   render{args, key = args-key{args}, outstanding-patch = null} =
       deps = Object.create{null}
       var version = null
-      pargs = args each arg ->
+      pargs = args each deprox! arg ->
          version or= arg[VERSION]
          read-proxy{arg, deps}
       res = @renderfn.apply{@, pargs}
-      cache = CachedResult{res, deps, version}
+      cache = CachedResult{res, deps, version, outstanding-patch}
       tuck{res, "::reactive", [@]}
       tuck{res, "::arguments", args}
       tuck{res, "::cached", cache}
@@ -127,11 +137,13 @@ class System:
 reactive-function{render} =
    r = Reactive{render}
    rval{*args} =
-      r.render{args}
+      r.update{args}
    rval.orig = render
    rval
 
 update{previous, the-patch, args = previous["::arguments"]} =
    previous["::reactive"].update{the-patch, args}
+
+
 
 

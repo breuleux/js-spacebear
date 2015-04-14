@@ -14,6 +14,8 @@ require:
       changed-relevantly
    "../src/reactive" ->
       Reactive, reactive-function, update, System
+   "../src/util" ->
+      ID
 
 
 struct Person:
@@ -49,19 +51,32 @@ describe "utilities":
       assert f.count == 2
 
 
+;; count-call! reactive-function! say-name{person} =
+;;    {greeting = 'Hello, my name is {person.name}!'}
+
+;; count-call! reactive-function! say-parent-names{person} =
+
+
+
 describe "Reactive functions":
 
-   it "called through System":
-      reactive-function! fn{person} =
+   before-each:
+
+      count-calls! reactive-function! @say-name{person} =
          {greeting = 'Hello, my name is {person.name}!'}
-      sys = System{clara, fn}
+
+      count-calls! reactive-function! @say-parent-names{person} =
+         {mother = @say-name{person.mother}
+          father = @say-name{person.father}}
+
+
+   it "called through System":
+      sys = System{clara, @say-name}
       assert sys.value == {greeting = 'Hello, my name is clara!'}
 
    it "can be updated":
-      reactive-function! fn{person} =
-         {greeting = 'Hello, my name is {person.name}!'}
 
-      sys = System{clara, fn}
+      sys = System{clara, @say-name}
       assert sys.value == {greeting = 'Hello, my name is clara!'}
 
       sys.transact with {clara} ->
@@ -69,33 +84,112 @@ describe "Reactive functions":
       assert sys.value == {greeting = 'Hello, my name is clairette!'}
 
    it "is parsimonious":
-      count-calls! reactive-function! fn{person} =
-         {greeting = 'Hello, my name is {person.name}!'}
 
-      assert fn.orig.count == 0
+      assert @say-name.orig.count == 0
 
       ;; Called to initialize
-      sys = System{clara, fn}
-      assert fn.orig.count == 1
+      sys = System{clara, @say-name}
+      assert @say-name.orig.count == 1
 
-      ;; Change is irrelevant because fn does not use age,
-      ;; so fn should not be called again.
+      ;; Change is irrelevant because @say-name does not use age,
+      ;; so @say-name should not be called again.
       sys.transact with {clara} ->
          clara.age = 21
-      assert fn.orig.count == 1
+      assert @say-name.orig.count == 1
 
-      ;; Change is relevant, fn should be called
+      ;; Change is relevant, @say-name should be called
       sys.transact with {clara} ->
          clara.name = "clairette"
-      assert fn.orig.count == 2
+      assert @say-name.orig.count == 2
 
       ;; Irrelevant change again
       sys.transact with {clara} ->
          clara.mother = clara.father
-      assert fn.orig.count == 2
+      assert @say-name.orig.count == 2
 
       ;; Relevant change again
       sys.transact with {clara} ->
          clara.name = "bob"
-      assert fn.orig.count == 3
+      assert @say-name.orig.count == 3
 
+   it "composes":
+      sys = System{clara, @say-parent-names}
+
+      assert sys.value == {
+         mother = {greeting = 'Hello, my name is alice!'}
+         father = {greeting = 'Hello, my name is bob!'}
+      }
+
+   it "compositions can be modified":
+
+      sys = System{clara, @say-parent-names}
+
+      sys.transact with {clara} ->
+         clara.mother.name = .balice
+
+      assert sys.value == {
+         mother = {greeting = 'Hello, my name is balice!'}
+         father = {greeting = 'Hello, my name is bob!'}
+      }
+
+   it "compositions can be modified and are parsimonious":
+
+      assert @say-parent-names.orig.count == 0
+      assert @say-name.orig.count == 0
+
+      sys = System{clara, @say-parent-names}
+
+      assert @say-parent-names.orig.count == 1
+      assert @say-name.orig.count == 2
+
+      sys.transact with {clara} ->
+         clara.mother.name = .balice
+
+      assert @say-parent-names.orig.count == 1
+      assert @say-name.orig.count == 3
+
+      sys.transact with {clara} ->
+         clara.father.age = 88
+
+      assert @say-parent-names.orig.count == 1
+      assert @say-name.orig.count == 3
+
+      sys.transact with {clara} ->
+         clara.father.name = .gob
+         clara.mother = clara.father
+
+      assert @say-parent-names.orig.count == 2
+      assert @say-name.orig.count == 4
+
+   describe "miscellaneous tests":
+
+      it "swap":
+         sys = System{clara, @say-parent-names}
+         sys.transact with {clara} ->
+            {=> mother, => father} = clara
+            {clara.mother, clara.father} = {father, mother}
+         assert sys.value == {
+            mother = {greeting = 'Hello, my name is bob!'}
+            father = {greeting = 'Hello, my name is alice!'}
+         }
+
+      it "change all":
+         sys = System{clara, @say-parent-names}
+         sys.transact with {clara} ->
+            {=> mother, => father} = clara
+            mother.name = .yann
+            father.name = .zoe
+            {clara.mother, clara.father} = {father, mother}
+         assert sys.value == {
+            mother = {greeting = 'Hello, my name is zoe!'}
+            father = {greeting = 'Hello, my name is yann!'}
+         }
+
+      it "deep change":
+         sys = System{clara, @say-parent-names}
+         sys.transact with {clara} ->
+            clara.mother.name = .gertrude
+         assert sys.value == {
+            mother = {greeting = 'Hello, my name is gertrude!'}
+            father = {greeting = 'Hello, my name is bob!'}
+         }
