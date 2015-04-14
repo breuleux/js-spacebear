@@ -9,7 +9,7 @@ require:
       tuck, identify, ID, FORKID, VERSION
 
 provide:
-   Reactive, reactive-function, update
+   Reactive, reactive-function
    args-key
    System
 
@@ -121,7 +121,7 @@ class System:
 
    update{the-patch} =
       patch{@basis, the-patch}
-      @value = update{@value, the-patch, {@basis}}
+      @value = @value["::reactive"].update{the-patch, {@basis}}
       @value
 
    transact{fn, Array! roots = @basis} =
@@ -140,9 +140,6 @@ reactive-function{render} =
       r.update{args}
    rval.orig = render
    rval
-
-update{previous, the-patch, args = previous["::arguments"]} =
-   previous["::reactive"].update{the-patch, args}
 
 
 

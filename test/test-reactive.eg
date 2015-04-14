@@ -13,7 +13,7 @@ require:
       make-struct, read-proxy
       changed-relevantly
    "../src/reactive" ->
-      Reactive, reactive-function, update, System
+      Reactive, reactive-function, System
    "../src/util" ->
       ID
 
