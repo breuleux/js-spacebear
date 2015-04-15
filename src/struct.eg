@@ -2,12 +2,15 @@
 require:
    "./util" ->
       tuck, identify, next-id, ID, FORKID, VERSION, SOURCE
+   "./proxy" ->
+      read-proxy, write-proxy, deprox
 
 provide:
    make-struct, struct
    read-proxy, write-proxy, deprox
    fork, patch
    changed-relevantly
+
 
 
 maybe-freeze{obj, mutable} =
@@ -18,25 +21,25 @@ maybe-freeze{obj, mutable} =
 
 
 
-read-proxy{obj, storage, key = true} =
-   if not obj or not obj[ID]:
-      return obj
-   if obj[SOURCE]:
-      return read-proxy{obj[SOURCE], storage, key}
-   return obj.read-proxy{storage, key}
+;; read-proxy{obj, storage, key = true} =
+;;    if not obj or not obj[ID]:
+;;       return obj
+;;    if obj[SOURCE]:
+;;       return read-proxy{obj[SOURCE], storage, key}
+;;    return obj.read-proxy{storage, key}
 
-write-proxy{obj, storage} =
-   if not obj or not obj[ID]:
-      return obj
-   if obj[SOURCE]:
-      return write-proxy{obj[SOURCE], storage}
-   return obj.write-proxy{storage}
+;; write-proxy{obj, storage} =
+;;    if not obj or not obj[ID]:
+;;       return obj
+;;    if obj[SOURCE]:
+;;       return write-proxy{obj[SOURCE], storage}
+;;    return obj.write-proxy{storage}
 
-deprox{x} =
-   if x and x[SOURCE]:
-      x[SOURCE]
-   else:
-      x
+;; deprox{x} =
+;;    if x and x[SOURCE]:
+;;       x[SOURCE]
+;;    else:
+;;       x
 
 fork{match obj, mutable = false} =
    null? or undefined? or String? or Number? or Boolean? ->
@@ -72,45 +75,45 @@ proto-write-proxy = Object.create{null} &: {
 
 proto-zero = Object.create{null} &: {
 
-   generic-proxy{target, proto, field-wrapper} =
-      obj = this
-      id = obj[ID]
-      target[id] or= Object.create{null}
-      obj-data = target[id]
-      cons = obj.constructor
-      prox = Object.create{proto-read-proxy}
-      tuck{prox, SOURCE, obj}
-      tuck{obj-data, SOURCE, obj}
-      cons.field-names each name ->
-         field-wrapper{prox, name, obj-data}
-      cons.method-names each name ->
-         tuck{prox, name, obj[name]}
-      prox
+   ;; generic-proxy{target, proto, field-wrapper} =
+   ;;    obj = this
+   ;;    id = obj[ID]
+   ;;    target[id] or= Object.create{null}
+   ;;    obj-data = target[id]
+   ;;    cons = obj.constructor
+   ;;    prox = Object.create{proto-read-proxy}
+   ;;    tuck{prox, SOURCE, obj}
+   ;;    tuck{obj-data, SOURCE, obj}
+   ;;    cons.field-names each name ->
+   ;;       field-wrapper{prox, name, obj-data}
+   ;;    cons.method-names each name ->
+   ;;       tuck{prox, name, obj[name]}
+   ;;    prox
 
-   read-proxy{tracks, key = true} =
-      obj = this
-      this.generic-proxy{tracks, proto-read-proxy} with
-         {prox, name, obj-data} ->
-            Object.define-property{prox, name} with {
-               .get{} =
-                  obj-data[name] = key
-                  read-proxy{obj[name], tracks, key}
-               enumerable = true
-            }
+   ;; read-proxy{tracks, key = true} =
+   ;;    obj = this
+   ;;    this.generic-proxy{tracks, proto-read-proxy} with
+   ;;       {prox, name, obj-data} ->
+   ;;          Object.define-property{prox, name} with {
+   ;;             .get{} =
+   ;;                obj-data[name] = key
+   ;;                read-proxy{obj[name], tracks, key}
+   ;;             enumerable = true
+   ;;          }
 
-   write-proxy{patch} =
-      obj = this
-      this.generic-proxy{patch, proto-write-proxy} with
-         {prox, name, obj-data} ->
-            Object.define-property{prox, name} with {
-               .get{} =
-                  if obj-data[name]:
-                     throw E.invalid_access with
-                        '''Cannot access property '{name}' after setting it.'''
-                  write-proxy{obj[name], patch}
-               .set{new-value} =
-                  obj-data[name] = #update{deprox{new-value}}
-            }
+   ;; write-proxy{patch} =
+   ;;    obj = this
+   ;;    this.generic-proxy{patch, proto-write-proxy} with
+   ;;       {prox, name, obj-data} ->
+   ;;          Object.define-property{prox, name} with {
+   ;;             .get{} =
+   ;;                if obj-data[name]:
+   ;;                   throw E.invalid_access with
+   ;;                      '''Cannot access property '{name}' after setting it.'''
+   ;;                write-proxy{obj[name], patch}
+   ;;             .set{new-value} =
+   ;;                obj-data[name] = #update{deprox{new-value}}
+   ;;          }
 
    fork{mutable = false} =
       obj = this
@@ -159,12 +162,60 @@ proto-zero = Object.create{null} &: {
 ;;    .get{i} =
 ;;       this._a[i]
 
-;;    ;; .set{i, value} =
-;;    ;;    this._a[i] = this.validate-element{value}
+;;    .set{i, value} =
+;;       this._a[i] = value
 
-;;    ;; splice{i, j, *elements} =
-;;    ;;    values = elements each value -> this.validate-element{value}
-;;    ;;    this._a.splice{i, j}
+;;    .splice{i, j, *elements} =
+;;       this._a.splice{i, j, *elements}
+
+
+
+;;    generic-proxy{target, proto, field-wrapper} =
+;;       obj = this
+;;       id = obj[ID]
+;;       target[id] or= Object.create{null}
+;;       obj-data = target[id]
+;;       cons = obj.constructor
+;;       prox = Object.create{proto-read-proxy}
+;;       tuck{prox, SOURCE, obj}
+;;       tuck{obj-data, SOURCE, obj}
+;;       cons.field-names each name ->
+;;          field-wrapper{prox, name, obj-data}
+;;       cons.method-names each name ->
+;;          tuck{prox, name, obj[name]}
+;;       prox
+
+;;    read-proxy{tracks, key = true} =
+;;       obj = this
+;;       this.generic-proxy{tracks, proto-read-proxy} with
+;;          {prox, name, obj-data} ->
+;;             Object.define-property{prox, name} with {
+;;                .get{} =
+;;                   obj-data[name] = key
+;;                   read-proxy{obj[name], tracks, key}
+;;                enumerable = true
+;;             }
+
+;;    write-proxy{patch} =
+;;       obj = this
+;;       this.generic-proxy{patch, proto-write-proxy} with
+;;          {prox, name, obj-data} ->
+;;             Object.define-property{prox, name} with {
+;;                .get{} =
+;;                   if obj-data[name]:
+;;                      throw E.invalid_access with
+;;                         '''Cannot access property '{name}' after setting it.'''
+;;                   write-proxy{obj[name], patch}
+;;                .set{new-value} =
+;;                   obj-data[name] = #update{deprox{new-value}}
+;;             }
+
+;; }
+
+
+
+
+
 
 ;;    proxy{listener} =
 ;;       obj = this
@@ -347,3 +398,4 @@ macro{make-struct} struct{`{^name, ^body}`} =
 
    results.push with `^name = [^ms]{^=sname, ^fields, methods}`
    results
+

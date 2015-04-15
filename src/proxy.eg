@@ -1,0 +1,81 @@
+
+require:
+   "./util" ->
+      tuck, identify, next-id, ID, FORKID, VERSION, SOURCE
+
+provide:
+   deprox, proxy, read-proxy, write-proxy
+
+
+deprox{x} =
+   if x and x[SOURCE]:
+      x[SOURCE]
+   else:
+      x
+
+object-proxy{obj, tracks, patch, var prevent-dirty-reads = true} =
+   frz = Object.is-frozen{obj}
+   if not frz:
+      identify{obj}
+
+   id = obj[ID]
+   obj-tracks = tracks and id and [tracks[id] or= {=}]
+   if obj-tracks:
+      tuck{obj-tracks, SOURCE, obj}
+
+   obj-patch = patch and id and [patch[id] or= {=}]
+   if obj-patch:
+      tuck{obj-patch, SOURCE, obj}
+   else:
+      prevent-dirty-reads = false
+
+   getfn{name}{} =
+      if prevent-dirty-reads and obj-patch[name]:
+         throw E.invalid_access with
+            '''Cannot access property '{name}' after setting it.'''
+      if obj-tracks: obj-tracks[name] = true
+      proxy{obj[name], tracks, patch, prevent-dirty-reads}
+
+   setfn{name} =
+      if obj-patch:
+         {new-value} ->
+            obj-patch[name] = #update{deprox{new-value}}
+
+   prox = Object.create{Object.get-prototype-of{obj}}
+   tuck{prox, SOURCE, obj}
+   tuck{prox, ID, obj[ID]}
+   tuck{prox, VERSION, obj[VERSION]}
+   keys{obj} each name ->
+      Object.define-property{prox, name} with {
+         .get = getfn{name}
+         .set = setfn{name}
+         enumerable = true
+      }
+   Object.prevent-extensions{prox}
+   prox
+
+
+proxy{match value, tracks, patch, prevent-dirty-reads = true} =
+
+   null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+      value
+
+   {proxy => Function?} ->
+      deprox{value}.proxy{tracks, patch, prevent-dirty-reads}
+
+   Array? ->
+      throw E.spacebear.proxy with
+         'Cannot proxy arrays. Wrap with spacebear.Array.'
+
+   else ->
+      object-proxy{value, tracks, patch, prevent-dirty-reads}
+      ;; throw E.spacebear.proxy with
+      ;;    '''Cannot proxy '{value}'. Try defining a .proxy method.'''
+
+
+read-proxy{value, tracks} =
+   proxy{value, tracks, null}
+
+write-proxy{value, patch} =
+   proxy{value, null, patch}
+
