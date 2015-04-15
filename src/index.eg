@@ -1,0 +1,24 @@
+
+require:
+   "./util" ->
+      tuck, identify, next-id
+      ID, FORKID, VERSION, SOURCE
+   "./struct" ->
+      make-struct, struct
+   "./proxy" ->
+      read-proxy, write-proxy, deprox
+   "./fork" ->
+      fork
+   "./patch" ->
+      patch
+   "./relevant" ->
+      intersect, changed-relevantly
+
+provide:
+   ID, FORKID, VERSION, SOURCE
+   make-struct, struct
+   read-proxy, write-proxy, deprox
+   fork, patch
+   changed-relevantly
+   intersect
+

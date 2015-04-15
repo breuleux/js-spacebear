@@ -9,12 +9,10 @@ require-macros:
       expect-error
 
 require:
-   "../src/struct" ->
-      make-struct, read-proxy
+   "../src/index" ->
+      make-struct, read-proxy, ID
    "../src/reactive" ->
       Reactive, reactive-function, System
-   "../src/util" ->
-      ID
 
 
 struct Person:

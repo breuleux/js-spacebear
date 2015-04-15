@@ -9,10 +9,9 @@ require-macros:
       expect-error
 
 require:
-   "../src/struct" ->
+   "../src/index" ->
       make-struct, read-proxy, write-proxy
       fork, patch, changed-relevantly, intersect
-   "../src/util" ->
       ID
 
 

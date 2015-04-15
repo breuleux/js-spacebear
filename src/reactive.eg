@@ -1,7 +1,7 @@
 
 
 require:
-   "./struct" ->
+   "./index" ->
       deprox
       read-proxy, write-proxy, patch, fork
       intersect
