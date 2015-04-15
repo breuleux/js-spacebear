@@ -1,0 +1,47 @@
+
+require:
+   "./util" ->
+      tuck, identify, next-id, ID, FORKID, VERSION, SOURCE
+   "./proxy" ->
+      deprox
+
+provide:
+   patch, object-patch
+
+
+
+patch{match value, p} =
+
+   null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+      value
+
+   Object.is-frozen? ->
+      throw E.spacebear.patch with
+         'Cannot patch frozen objects.'
+
+   {patch => Function?} ->
+      deprox{value}.patch{p}
+
+   Array? ->
+      throw E.spacebear.patch with
+         'Cannot patch arrays. Wrap with spacebear.Array.'
+
+   else ->
+      object-patch{deprox{value}, p}
+
+
+object-patch{identify! obj, p} =
+   if obj[VERSION] === p[VERSION]:
+      return obj
+   tuck{obj, VERSION, p[VERSION]}
+
+   match p[obj[ID]]:
+      undefined? -> pass
+      items! [each {field, match}] ->
+         #update{value} ->
+            obj[field] = value
+
+   items{obj} each {_, v} ->
+      patch{v, p}
+
+   obj

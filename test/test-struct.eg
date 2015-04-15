@@ -11,7 +11,7 @@ require-macros:
 require:
    "../src/struct" ->
       make-struct, read-proxy, write-proxy
-      changed-relevantly
+      fork, patch, changed-relevantly, intersect
    "../src/util" ->
       ID
 
@@ -63,7 +63,7 @@ describe "structs":
 describe "fork":
 
    before-each:
-      @clara = clara.fork{true}
+      @clara = fork{clara, true}
 
    it "preserves information":
       assert @clara.name == .clara
@@ -155,7 +155,7 @@ describe "patch":
 
    before-each:
       @data = {=}
-      @clara = clara.fork{true}
+      @clara = fork{clara, true}
       @clarap = write-proxy{@clara, @data}
 
    it "updates mutable structures (shallow)":
@@ -163,7 +163,7 @@ describe "patch":
       @clarap.age = 21
       assert @clara.name == .clara
       assert @clara.age == 20
-      @clara.patch{@data}
+      patch{@clara, @data}
       assert @clara.name == .clairette
       assert @clara.age == 21
 
@@ -172,48 +172,48 @@ describe "patch":
       @clarap.mother.age = 21
       assert @clara.name == .clara
       assert @clara.mother.age == 51
-      @clara.patch{@data}
+      patch{@clara, @data}
       assert @clara.name == .clairette
       assert @clara.mother.age == 21
 
    it "updates all instances of an object":
       @data = {=}
-      @donald = donald.fork{true}
+      @donald = fork{donald, true}
       @donaldp = write-proxy{@donald, @data}
       @donaldp.mother.age = 21
-      @donald.patch{@data}
+      patch{@donald, @data}
       ;; donald's mother is also his father
       assert @donald.mother.age == 21
       assert @donald.father.age == 21
 
 
-describe "changed-relevantly":
+describe "changed-relevantly and intersect":
 
    before-each:
       @tracks = {=}
       @patch = {=}
-      @clara = clara.fork{true}
+      @clara = fork{clara, true}
       @clarar = read-proxy{@clara, @tracks}
       @claraw = write-proxy{@clara, @patch}
 
    it "tracks relevant changes":
       @clarar.name
       @claraw.name = .clairette
-      assert @clara.changed-relevantly{@tracks[cid], @patch[cid]}
-      assert changed-relevantly{@tracks, @patch}
+      assert changed-relevantly{@clara, @tracks[cid], @patch[cid]}
+      assert intersect{@tracks, @patch}
 
    it "does not track irrelevant changes":
       @clarar.name
       @claraw.age = 20
-      assert not @clara.changed-relevantly{@tracks[cid], @patch[cid]}
-      assert not changed-relevantly{@tracks, @patch}
+      assert not changed-relevantly{@clara, @tracks[cid], @patch[cid]}
+      assert not intersect{@tracks, @patch}
 
    it "operates on individual objects":
       @clarar.name
       @clarar.mother.age
       @claraw.mother.age = 20
-      assert not @clara.changed-relevantly{@tracks[cid], @patch[cid]}
-      assert @clara.mother.changed-relevantly{@tracks[aid], @patch[aid]}
-      assert changed-relevantly{@tracks, @patch}
+      assert not changed-relevantly{@clara, @tracks[cid], @patch[cid]}
+      assert changed-relevantly{@clara.mother, @tracks[aid], @patch[aid]}
+      assert intersect{@tracks, @patch}
 
 

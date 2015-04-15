@@ -11,7 +11,6 @@ require-macros:
 require:
    "../src/struct" ->
       make-struct, read-proxy
-      changed-relevantly
    "../src/reactive" ->
       Reactive, reactive-function, System
    "../src/util" ->

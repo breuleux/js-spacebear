@@ -1,0 +1,24 @@
+
+require:
+   "./util" -> SOURCE
+
+provide:
+   intersect, changed-relevantly
+
+
+intersect{tracks, patch} =
+   items{tracks} each {id, reads} ->
+      obj = reads[SOURCE]
+      if changed-relevantly{obj, reads, patch[id]}:
+         return true
+   false
+
+changed-relevantly{match value, reads, writes} =
+   {changed-relevantly => Function?} ->
+      value.changed-relevantly{reads, writes}
+   else ->
+      items{writes or {=}} each
+         {name, _} when reads[name] ->
+            return true
+      false
+

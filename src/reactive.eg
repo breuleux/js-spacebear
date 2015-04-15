@@ -4,7 +4,7 @@ require:
    "./struct" ->
       deprox
       read-proxy, write-proxy, patch, fork
-      changed-relevantly
+      intersect
    "./util" ->
       tuck, identify, ID, FORKID, VERSION
 
@@ -62,7 +62,7 @@ class CachedResult:
          [== @version] ->
             true
          [== [@version + 1]] ->
-            dirty = changed-relevantly{@deps, the-patch}
+            dirty = intersect{@deps, the-patch}
             if dirty:
                false
             else:

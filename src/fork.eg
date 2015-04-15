@@ -1,0 +1,41 @@
+
+require:
+   "./util" ->
+      tuck, identify, next-id, ID, FORKID, VERSION, SOURCE
+   "./proxy" ->
+      deprox
+
+provide:
+   fork, object-fork
+
+
+fork{match value} =
+
+   null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+      value
+
+   {fork => Function?} ->
+      deprox{value}.fork{}
+
+   Array? ->
+      throw E.spacebear.fork with
+         'Cannot fork arrays. Wrap with spacebear.Array.'
+
+   else ->
+      object-fork{deprox{value}}
+
+
+object-fork{match value} =
+
+   Object.is-frozen? ->
+      throw E.spacebear.proxy with
+         'Cannot fork frozen objects.'
+
+   identify! obj ->
+      rval = Object.create{Object.get-prototype-of{obj}}
+      items{obj} each {key, value} ->
+         rval[key] = fork{value}
+      tuck{rval, ID, obj[ID]}
+      tuck{rval, FORKID, next-id{}}
+      tuck{rval, VERSION, 1}
+      rval

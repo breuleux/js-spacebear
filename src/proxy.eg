@@ -4,7 +4,7 @@ require:
       tuck, identify, next-id, ID, FORKID, VERSION, SOURCE
 
 provide:
-   deprox, proxy, read-proxy, write-proxy
+   deprox, proxy, object-proxy, read-proxy, write-proxy
 
 
 deprox{x} =
@@ -12,6 +12,25 @@ deprox{x} =
       x[SOURCE]
    else:
       x
+
+
+proxy{match value, tracks, patch, prevent-dirty-reads = true} =
+
+   null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+      value
+
+   {proxy => Function?} ->
+      deprox{value}.proxy{tracks, patch, prevent-dirty-reads}
+
+   Array? ->
+      throw E.spacebear.proxy with
+         'Cannot proxy arrays. Wrap with spacebear.Array.'
+
+   else ->
+      object-proxy{value, tracks, patch, prevent-dirty-reads}
+      ;; throw E.spacebear.proxy with
+      ;;    '''Cannot proxy '{value}'. Try defining a .proxy method.'''
+
 
 object-proxy{obj, tracks, patch, var prevent-dirty-reads = true} =
    frz = Object.is-frozen{obj}
@@ -53,24 +72,6 @@ object-proxy{obj, tracks, patch, var prevent-dirty-reads = true} =
       }
    Object.prevent-extensions{prox}
    prox
-
-
-proxy{match value, tracks, patch, prevent-dirty-reads = true} =
-
-   null? or undefined? or Number? or String? or Symbol? or Boolean? ->
-      value
-
-   {proxy => Function?} ->
-      deprox{value}.proxy{tracks, patch, prevent-dirty-reads}
-
-   Array? ->
-      throw E.spacebear.proxy with
-         'Cannot proxy arrays. Wrap with spacebear.Array.'
-
-   else ->
-      object-proxy{value, tracks, patch, prevent-dirty-reads}
-      ;; throw E.spacebear.proxy with
-      ;;    '''Cannot proxy '{value}'. Try defining a .proxy method.'''
 
 
 read-proxy{value, tracks} =
