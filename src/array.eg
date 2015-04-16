@@ -1,0 +1,135 @@
+
+require:
+   "./proxy" ->
+      proxy, deprox
+   "./util" ->
+      tuck, identify
+      ID, SOURCE
+   util -> inspect
+
+provide:
+   SBArray
+
+
+class SBArray:
+
+   constructor{*entries} =
+      identify{@}
+      @_a = entries each x -> x
+
+   .get{i} =
+      if i < 0 or i >= @_a.length:
+         throw E.outofbounds{'''Index {i} is out of range for {@}'''}
+      @_a[i]
+
+   .set{i, new-value} =
+      this._splice{i, 1, {new-value}, false}
+
+   pop{n = 1} =
+      this._splice{@_a.length - n, n, {}, false}
+   push{*values} =
+      this._splice{@_a.length, 0, values, .append}
+
+   shift{n = 1} =
+      this._splice{0, n, {}, false}
+   unshift{*values} =
+      this._splice{0, 0, values, .prepend}
+
+   .splice{i, n, *values} =
+      this._splice{i, n, values, false}
+
+   replace{new-array} =
+      this._splice{0, @_a.length, new-array, false}
+
+   _splice{i, n, values, _} =
+      @_a.splice{i, n, *values}
+
+   to-string{} =
+      '\{{@_a.join{", "}}\}'
+
+   inspect{depth} =
+      inspect{@_a, depth}
+
+   proxy{tracks, patch, prevent-dirty-reads} =
+      sbarray-proxy{this, tracks, patch, prevent-dirty-reads}
+
+
+SBArray.prototype[Symbol.iterator]{} =
+   this._a[Symbol.iterator]{}
+
+Object.define-property{SBArray.prototype, .length} with {
+   .get{} = this._a.length
+}
+
+
+
+sbarray-proxy{obj, tracks, patch, var prevent-dirty-reads = true} =
+   a = obj._a
+
+   id = obj[ID]
+   obj-tracks = tracks and id and [tracks[id] or= {=}]
+   if obj-tracks:
+      tuck{obj-tracks, SOURCE, obj}
+
+   obj-patch = patch and id and [patch[id] or= {=}]
+   if obj-patch:
+      tuck{obj-patch, SOURCE, obj}
+   else:
+      prevent-dirty-reads = false
+
+   prox = Object.create{Object.create{SBArray.prototype} &: [getters & setters]} where
+      getters = {
+         .get{i} =
+            if prevent-dirty-reads and obj-patch[i]:
+               throw E.invalid_access with
+                  '''Cannot access index '{i}' after setting it.'''
+            if obj-tracks: obj-tracks[i] = true
+            proxy{obj.get{i}, tracks, patch, prevent-dirty-reads}
+         ;; ^Symbol.iterator = {} ->
+         ;;    ee
+      }
+      setters =
+         if obj-patch: {
+
+            ._splice{i, n, values, pos = false} =
+               emsg = 'Inconsistent splicing (this may happen if you modify the array more than once at the same place)'
+               d = [obj-patch["@splice"] or= Array{a.length + 1}]
+               match d[i]:
+                  === true ->
+                     throw E.splice{emsg}
+                  undefined? ->
+                     d[i] = {n, values}
+                  {n2, previous-values} when n == 0 or n2 == 0 ->
+                     d[i] = {Math.max{n, n2}, new-values} where new-values =
+                        match pos:
+                           .prepend -> values ++ previous-values
+                           .append -> previous-values ++ values
+                           else -> throw E.splice{emsg}
+                  else ->
+                     throw E.splice{emsg}
+               1..[n - 1] each j ->
+                  match d[i + j]:
+                     undefined? ->
+                        d[i + j] = true
+                     else ->
+                        throw E.splice{emsg}
+         }
+
+         else: {
+            _splice{} =
+               throw E.immutable{'''Cannot modify {obj}'''}
+         }
+
+   Object.define-property{prox, .length} with {
+      .get{} =
+         if prevent-dirty-reads and obj-patch[.length]:
+            throw E.invalid_access with
+               '''Array length has changed.'''
+         if obj-tracks: obj-tracks[.length] = true
+         proxy{obj[.length], tracks, patch, prevent-dirty-reads}
+   }
+
+   tuck{prox, ._a, a}
+
+   prox
+
