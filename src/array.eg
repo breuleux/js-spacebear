@@ -17,10 +17,21 @@ class SBArray:
       identify{@}
       @_a = entries each x -> x
 
+
    .get{i} =
       if i < 0 or i >= @_a.length:
          throw E.outofbounds{'''Index {i} is out of range for {@}'''}
       @_a[i]
+
+   slice{i, j} =
+      @_a.slice{i, j}[Symbol.iterator]{}
+
+   for-each{fn} =
+      this each x -> fn{x}
+      undefined
+
+   map{fn} =
+      this each x -> fn{x}
 
    .set{i, new-value} =
       this._splice{i, 1, {new-value}, false}
@@ -77,7 +88,16 @@ sbarray-proxy{obj, tracks, patch, var prevent-dirty-reads = true} =
    else:
       prevent-dirty-reads = false
 
+   update-iter{match, i, j} =
+      undefined? ->
+         {i, j}
+      {i2, j2} ->
+         {Math.min{i, i2}, Math.max{j, j2}}
+      else ->
+         {i, j}
+
    prox = Object.create{Object.create{SBArray.prototype} &: [getters & setters]} where
+
       getters = {
          .get{i} =
             if prevent-dirty-reads and obj-patch[i]:
@@ -85,14 +105,23 @@ sbarray-proxy{obj, tracks, patch, var prevent-dirty-reads = true} =
                   '''Cannot access index '{i}' after setting it.'''
             if obj-tracks: obj-tracks[i] = true
             proxy{obj.get{i}, tracks, patch, prevent-dirty-reads}
-         ;; ^Symbol.iterator = {} ->
-         ;;    ee
+         slice{i = 0, j = a.length} =
+            if obj-tracks:
+               obj-tracks["@iter"] = update-iter{obj-tracks["@iter"], i, j}
+            obj.slice{i, j} each* x ->
+               proxy{x, tracks, patch, prevent-dirty-reads}
+         ^Symbol.iterator = {} ->
+            proxies = obj each x -> proxy{x, tracks, patch, prevent-dirty-reads}
+            if obj-tracks: obj-tracks["@iter"] = {0, a.length}
+            proxies[Symbol.iterator]{}
       }
+
       setters =
          if obj-patch: {
 
             ._splice{i, n, values, pos = false} =
-               emsg = 'Inconsistent splicing (this may happen if you modify the array more than once at the same place)'
+               emsg = 'Inconsistent splicing (this may happen if you modify'
+                  \ + ' the array more than once at the same place)'
                d = [obj-patch["@splice"] or= Array{a.length + 1}]
                match d[i]:
                   === true ->

@@ -41,6 +41,35 @@ describe "SBArray proxy":
          @id => {0 => true, 2 => true}
       }
 
+   it "iter":
+      @p each x -> x
+      assert @tracks == {
+         @id => {"@iter" => {0, 3}}
+      }
+
+   it "for-each":
+      @p.for-each{x -> x}
+      assert @tracks == {
+         @id => {"@iter" => {0, 3}}
+      }
+
+   it "map":
+      assert @p.map{x -> x} == {1, 2, 3}
+      assert @tracks == {
+         @id => {"@iter" => {0, 3}}
+      }
+
+   it "slice":
+      values = @p.slice{1, 2} each x -> x
+      assert values == {2}
+      assert @tracks == {
+         @id => {"@iter" => {1, 2}}
+      }
+      @p.slice{0} each x -> x
+      assert @tracks == {
+         @id => {"@iter" => {0, 3}}
+      }
+
    it "set":
       @p.set{0, 11}
       @p.set{1, 22}
