@@ -1,0 +1,111 @@
+
+require-macros:
+   earl-mocha ->
+      describe, it, before, after, before-each, after-each
+      xdescribe, xit
+      assert, asserts
+      expect-error
+
+require:
+   "../src/array" ->
+      SBArray
+   "../src/util" ->
+      ID
+
+
+describe "SBArray":
+
+   before-each:
+      @a = SBArray{1, 2, 3}
+
+   it "is queriable":
+      assert @a.get{0} == 1
+      assert @a.get{1} == 2
+      assert @a.get{2} == 3
+
+
+describe "SBArray proxy":
+
+   before-each:
+      @a = SBArray{1, 2, 3}
+      @id = @a[ID]
+      @tracks = {=}
+      @patch = {=}
+      @p = @a.proxy{@tracks, @patch}
+      @spldata{} = @patch[@id]["@splice"]
+
+   it "get":
+      assert @p.get{0} == 1
+      assert @p.get{2} == 3
+      assert @tracks == {
+         @id => {0 => true, 2 => true}
+      }
+
+   it "set":
+      @p.set{0, 11}
+      @p.set{1, 22}
+      @p.set{2, 33}
+      assert @spldata{} == {
+         {1, {11}}
+         {1, {22}}
+         {1, {33}}
+         undefined
+      }
+
+   it "push":
+      @p.push{11}
+      @p.push{22, 33}
+      assert @spldata{} == {
+         undefined
+         undefined
+         undefined
+         {0, {11, 22, 33}}
+      }
+
+   it "pop":
+      @p.pop{2}
+      assert @spldata{} == {
+         undefined
+         {2, {}}
+         true
+         undefined
+      }
+
+   it "shift":
+      @p.shift{2}
+      assert @spldata{} == {
+         {2, {}}
+         true
+         undefined
+         undefined
+      }
+
+   it "unshift":
+      @p.unshift{11}
+      @p.unshift{22, 33}
+      assert @spldata{} == {
+         {0, {22, 33, 11}}
+         undefined
+         undefined
+         undefined
+      }
+
+   it "replace":
+      @p.replace with {11, 22, 33}
+      assert @spldata{} == {
+         {3, {11, 22, 33}}
+         true
+         true
+         undefined
+      }
+
+   it "complex case":
+      @p.unshift{11}
+      @p.push{22}
+      @p.splice{1, 2}
+      assert @spldata{} == {
+         {0, {11}}
+         {2, {}}
+         true
+         {0, {22}}
+      }
