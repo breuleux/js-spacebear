@@ -10,19 +10,32 @@ require:
    "../src/array" ->
       SBArray
    "../src/util" ->
-      ID
+      ID, FORKID
 
 
 describe "SBArray":
 
    before-each:
       @a = SBArray{1, 2, 3}
+      @b = SBArray{4, 5, 6}
+      @c = SBArray{@a, @b}
 
-   it "is queriable":
+   it "get":
       assert @a.get{0} == 1
       assert @a.get{1} == 2
       assert @a.get{2} == 3
 
+   it "fork":
+      c2 = @c.fork{}
+      assert @c !== c2
+      assert @c[ID] == c2[ID]
+      assert @c[FORKID] != c2[FORKID]
+      assert c2.get{0} !== @a
+      assert c2.get{1} !== @b
+      c2.get{0}.push{4}
+      assert [@a each x -> x] == {1, 2, 3}
+      assert [c2.get{0} each x -> x] == {1, 2, 3, 4}
+      assert [c2.get{1} each x -> x] == {4, 5, 6}
 
 describe "SBArray proxy":
 
@@ -138,3 +151,6 @@ describe "SBArray proxy":
          true
          {0, {22}}
       }
+
+
+

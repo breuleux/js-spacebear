@@ -1,10 +1,12 @@
 
 require:
+   "./fork" -> fork
+   "./patch" -> patch
    "./proxy" ->
       proxy, deprox
    "./util" ->
-      tuck, identify
-      ID, SOURCE
+      tuck, identify, next-id
+      ID, FORKID, VERSION, SOURCE
    util -> inspect
 
 provide:
@@ -61,8 +63,17 @@ class SBArray:
    inspect{depth} =
       inspect{@_a, depth}
 
+
    proxy{tracks, patch, prevent-dirty-reads} =
       sbarray-proxy{this, tracks, patch, prevent-dirty-reads}
+
+   fork{} =
+      rval = Object.create{SBArray.prototype}
+      rval._a = @_a each x -> fork{x}
+      tuck{rval, ID, this[ID]}
+      tuck{rval, FORKID, next-id{}}
+      tuck{rval, VERSION, 1}
+      rval
 
 
 SBArray.prototype[Symbol.iterator]{} =
