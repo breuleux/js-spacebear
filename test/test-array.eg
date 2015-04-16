@@ -9,7 +9,8 @@ require-macros:
 require:
    "../src/array" ->
       SBArray
-   "../src/util" ->
+   "../src/index" ->
+      patch
       ID, FORKID
 
 
@@ -36,6 +37,7 @@ describe "SBArray":
       assert [@a each x -> x] == {1, 2, 3}
       assert [c2.get{0} each x -> x] == {1, 2, 3, 4}
       assert [c2.get{1} each x -> x] == {4, 5, 6}
+
 
 describe "SBArray proxy":
 
@@ -151,6 +153,30 @@ describe "SBArray proxy":
          true
          {0, {22}}
       }
+
+
+describe "SBArray patching":
+
+   before-each:
+      @a = SBArray{1, 2, 3}
+      @id = @a[ID]
+      @tracks = {=}
+      @patch = {=}
+      @p = @a.proxy{@tracks, @patch}
+      @spldata{} = @patch[@id]["@splice"]
+
+   it "patch (1)":
+      @p.splice{1, 0, 11, 22, 33, 44}
+      @p.splice{2, 0, 88, 99}
+      @a.patch{@patch}
+      assert @a._a == {1, 11, 22, 33, 44, 2, 88, 99, 3}
+
+   it "patch (2)":
+      @p.unshift{11}
+      @p.push{22}
+      @p.splice{1, 2}
+      @a.patch{@patch}
+      assert @a._a == {11, 1, 22}
 
 
 

@@ -75,6 +75,21 @@ class SBArray:
       tuck{rval, VERSION, 1}
       rval
 
+   patch{p} =
+      splices = p??[self[ID]]??["@splice"]
+      if not splices:
+         return
+      enumerate{splices}.reverse{} each {i, match} ->
+         {n, repl} ->
+            @splice{i, n, *repl}
+         else ->
+            pass
+      self each x -> patch{x}
+      undefined
+
+   changed-relevantly{reads, writes} =
+      pass
+
 
 SBArray.prototype[Symbol.iterator]{} =
    this._a[Symbol.iterator]{}
