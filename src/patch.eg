@@ -6,9 +6,27 @@ require:
       deprox
 
 provide:
+   directory
    patch, patch-shallow
    iterate-properties
 
+
+directory{match v, dir = {=}} =
+
+   null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+      dir
+
+   else ->
+      id = v[ID]
+      if not id: return dir
+      match dir[v[ID]]:
+         undefined? ->
+            dir[v[ID]] = deprox{v}
+            iterate-properties{v} each {k, v2, replace} ->
+               directory{v2, dir}
+         obj ->
+            dir
+      dir
 
 
 patch-shallow{match value, p} =
@@ -32,11 +50,13 @@ patch-shallow{match value, p} =
       undefined
 
 
-patch{value, p} =
-   patch-shallow{value, p}
-   iterate-properties{value} each {k, v, replace} ->
-      patch{v, p}
-
+patch{value, p, dir = directory{value}} =
+   items{p} each {id, obj-patch} ->
+      obj = dir[id]
+      patch-shallow{obj, p}
+      ;; Refresh directory
+      iterate-properties{obj} each {k, v, replace} ->
+         directory{v, dir}
 
 
 object-patch{identify! obj, p} =
@@ -49,9 +69,6 @@ object-patch{identify! obj, p} =
       items! [each {field, match}] ->
          #update{value} ->
             obj[field] = value
-
-   ;; items{obj} each {_, v} ->
-   ;;    patch{v, p}
 
    obj
 
