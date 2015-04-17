@@ -84,8 +84,12 @@ class SBArray:
             @splice{i, n, *repl}
          else ->
             pass
-      self each x -> patch{x}
       undefined
+
+   iterate-properties{} =
+      enumerate{@_a} each {i, v} ->
+         {i, v, replace} where
+            replace{new-v} = @_a[i] = v
 
    changed-relevantly{reads, writes} =
       pass

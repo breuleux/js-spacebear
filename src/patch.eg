@@ -6,14 +6,15 @@ require:
       deprox
 
 provide:
-   patch, object-patch
+   patch, patch-shallow
+   iterate-properties
 
 
 
-patch{match value, p} =
+patch-shallow{match value, p} =
 
    null? or undefined? or Number? or String? or Symbol? or Boolean? ->
-      value
+      pass
 
    Object.is-frozen? ->
       throw E.spacebear.patch with
@@ -26,8 +27,16 @@ patch{match value, p} =
       throw E.spacebear.patch with
          'Cannot patch arrays. Wrap with spacebear.Array.'
 
-   else ->
-      object-patch{deprox{value}, p}
+   deprox! obj ->
+      object-patch{deprox{obj}, p}
+      undefined
+
+
+patch{value, p} =
+   patch-shallow{value, p}
+   iterate-properties{value} each {k, v, replace} ->
+      patch{v, p}
+
 
 
 object-patch{identify! obj, p} =
@@ -41,7 +50,36 @@ object-patch{identify! obj, p} =
          #update{value} ->
             obj[field] = value
 
-   items{obj} each {_, v} ->
-      patch{v, p}
+   ;; items{obj} each {_, v} ->
+   ;;    patch{v, p}
 
    obj
+
+
+
+iterate-properties{match obj} =
+
+   null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+      {}
+
+   Object.is-frozen? ->
+      throw E.spacebear.patch with
+         'Cannot iterate frozen objects.'
+
+   {iterate-properties => Function?} ->
+      deprox{obj}.iterate-properties{}
+
+   Array? ->
+      throw E.spacebear.iterate with
+         'Cannot iterate arrays. Wrap with spacebear.Array.'
+
+   else ->
+      object-iterate-properties{deprox{obj}}
+
+
+object-iterate-properties{obj} =
+   items{obj} each {k, v} ->
+      {k, v, replace} where
+         replace{new-v} = obj[k] = new-v
+
+

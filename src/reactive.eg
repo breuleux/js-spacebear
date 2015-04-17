@@ -4,6 +4,7 @@ require:
    "./index" ->
       deprox
       read-proxy, write-proxy, patch, fork
+      iterate-properties
       intersect
    "./util" ->
       tuck, identify, ID, FORKID, VERSION
@@ -32,30 +33,18 @@ class CachedResult:
       @children = {}
       @walk{@value, patch}
 
-   walk{match v, patch = null} =
-      do:
-         check{replace, match obj} =
-            {"::reactive" => r, "::arguments" => args, "::cached" => cached} ->
-               if patch:
-                  new-value = r.update{patch, args}
-                  replace{new-value}
-                  @children.push with {v, r, args, r["::cached"], replace}
-               else:
-                  @children.push with {v, r, args, cached, replace}
-            else ->
-               @walk{obj, patch}
-      null? or undefined? or String? or Number? or Boolean? ->
-         pass
-      {=> iterate-properties} ->
-         v.iterate-properties{} each {replace, obj} ->
-            check{replace, obj}
-      when Object.get-prototype-of{v} in {Object.prototype, null} ->
-         items{v} each {prop, obj} ->
-            check{replace, obj} where
-               replace{new-obj} = v[prop] = new-obj
-      else ->
-         throw E.reactive.cannot_walk with
-            '''Do not know how to walk object '{v}' to extract its reactive elements.'''
+   walk{v, patch = null} =
+      iterate-properties{v} each {k, match obj, replace} ->
+         {"::reactive" => r, "::arguments" => args, "::cached" => cached} ->
+            if patch:
+               new-value = r.update{patch, args}
+               replace{new-value}
+               @children.push with {v, r, args, r["::cached"], replace}
+            else:
+               @children.push with {v, r, args, cached, replace}
+         else ->
+            @walk{obj, patch}
+      undefined
 
    update{the-patch} =
       match the-patch[VERSION]:
