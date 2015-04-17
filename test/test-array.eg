@@ -7,6 +7,8 @@ require-macros:
       expect-error
 
 require:
+   "../src/fork" ->
+      fork
    "../src/array" ->
       SBArray
    "../src/index" ->
@@ -27,7 +29,7 @@ describe "SBArray":
       assert @a.get{2} == 3
 
    it "fork":
-      c2 = @c.fork{}
+      c2 = fork{@c}
       assert @c !== c2
       assert @c[ID] == c2[ID]
       assert @c[FORKID] != c2[FORKID]

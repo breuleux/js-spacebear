@@ -62,7 +62,8 @@ describe "structs":
 describe "fork":
 
    before-each:
-      @clara = fork{clara, true}
+      @clara = fork{clara}
+      @donald = fork{donald}
 
    it "preserves information":
       assert @clara.name == .clara
@@ -74,6 +75,9 @@ describe "fork":
       assert @clara !== clara
       assert @clara.mother !== clara.mother
       assert @clara.father !== clara.father
+
+   it "preserves identity":
+      assert @donald.mother === @donald.father
 
 
 describe "read-proxy":
@@ -154,7 +158,7 @@ describe "patch":
 
    before-each:
       @data = {=}
-      @clara = fork{clara, true}
+      @clara = fork{clara}
       @clarap = write-proxy{@clara, @data}
 
    it "updates mutable structures (shallow)":
@@ -177,7 +181,7 @@ describe "patch":
 
    it "updates all instances of an object":
       @data = {=}
-      @donald = fork{donald, true}
+      @donald = fork{donald}
       @donaldp = write-proxy{@donald, @data}
       @donaldp.mother.age = 21
       patch{@donald, @data}
@@ -191,7 +195,7 @@ describe "changed-relevantly and intersect":
    before-each:
       @tracks = {=}
       @patch = {=}
-      @clara = fork{clara, true}
+      @clara = fork{clara}
       @clarar = read-proxy{@clara, @tracks}
       @claraw = write-proxy{@clara, @patch}
 

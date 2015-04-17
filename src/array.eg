@@ -67,12 +67,13 @@ class SBArray:
    proxy{tracks, patch, prevent-dirty-reads} =
       sbarray-proxy{this, tracks, patch, prevent-dirty-reads}
 
-   fork{} =
+   fork{dir} =
       rval = Object.create{SBArray.prototype}
-      rval._a = @_a each x -> fork{x}
+      dir[this[ID]] = rval
       tuck{rval, ID, this[ID]}
       tuck{rval, FORKID, next-id{}}
       tuck{rval, VERSION, 1}
+      rval._a = @_a each x -> fork{x, dir}
       rval
 
    patch{p} =

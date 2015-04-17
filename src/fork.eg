@@ -9,23 +9,26 @@ provide:
    fork, object-fork
 
 
-fork{match value} =
+fork{match value, dir = {=}} =
 
    null? or undefined? or Number? or String? or Symbol? or Boolean? ->
       value
 
+   when dir[value[ID]] ->
+      dir[value[ID]]
+
    {fork => Function?} ->
-      deprox{value}.fork{}
+      deprox{value}.fork{dir}
 
    Array? ->
       throw E.spacebear.fork with
          'Cannot fork arrays. Wrap with spacebear.Array.'
 
    else ->
-      object-fork{deprox{value}}
+      object-fork{deprox{value}, dir}
 
 
-object-fork{match value} =
+object-fork{match value, dir} =
 
    Object.is-frozen? ->
       throw E.spacebear.proxy with
@@ -33,8 +36,9 @@ object-fork{match value} =
 
    identify! obj ->
       rval = Object.create{Object.get-prototype-of{obj}}
+      dir[obj[ID]] = rval
       items{obj} each {key, value} ->
-         rval[key] = fork{value}
+         rval[key] = fork{value, dir}
       tuck{rval, ID, obj[ID]}
       tuck{rval, FORKID, next-id{}}
       tuck{rval, VERSION, 1}
