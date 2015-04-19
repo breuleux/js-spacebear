@@ -118,7 +118,7 @@ class System:
       proxies = roots each root -> write-proxy{root, patch}
       fn.apply{this, proxies}
       @version += 1
-      patch[VERSION] = @version
+      tuck{patch, VERSION, @version}
       @update{patch}
 
 

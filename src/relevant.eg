@@ -7,9 +7,10 @@ provide:
 
 
 intersect{tracks, patch} =
-   items{tracks} each {id, reads} ->
-      obj = reads[SOURCE]
-      if changed-relevantly{obj, reads, patch[id]}:
+   items{patch} each {id, writes} ->
+      obj = writes[SOURCE]
+      reads = tracks[id]
+      if reads and changed-relevantly{obj, reads, writes}:
          return true
    false
 
