@@ -215,6 +215,7 @@ describe "changed-relevantly and intersect":
       @tracks = {=}
       @patch = {=}
       @clara = fork{clara}
+      @dir = directory{@clara}
       @clarar = read-proxy{@clara, @tracks}
       @claraw = write-proxy{@clara, @patch}
 
@@ -222,13 +223,13 @@ describe "changed-relevantly and intersect":
       @clarar.name
       @claraw.name = .clairette
       assert changed-relevantly{@clara, @tracks[cid], @patch[cid]}
-      assert intersect{@tracks, @patch}
+      assert intersect{@tracks, @patch, @dir}
 
    it "does not track irrelevant changes":
       @clarar.name
       @claraw.age = 20
       assert not changed-relevantly{@clara, @tracks[cid], @patch[cid]}
-      assert not intersect{@tracks, @patch}
+      assert not intersect{@tracks, @patch, @dir}
 
    it "operates on individual objects":
       @clarar.name
@@ -236,6 +237,6 @@ describe "changed-relevantly and intersect":
       @claraw.mother.age = 20
       assert not changed-relevantly{@clara, @tracks[cid], @patch[cid]}
       assert changed-relevantly{@clara.mother, @tracks[aid], @patch[aid]}
-      assert intersect{@tracks, @patch}
+      assert intersect{@tracks, @patch, @dir}
 
 

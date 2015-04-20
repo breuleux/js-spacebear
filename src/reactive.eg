@@ -5,7 +5,7 @@ require:
       deprox
       read-proxy, write-proxy, patch, fork
       iterate-properties
-      intersect
+      intersect, directory
    "./util" ->
       tuck, identify, ID, FORKID, VERSION
 
@@ -29,7 +29,7 @@ args-key{args} =
 
 class CachedResult:
 
-   constructor{@value, @deps, @version, patch = null} =
+   constructor{@value, @deps, @dir, @version, patch = null} =
       @children = {}
       @walk{@value, patch}
 
@@ -51,7 +51,7 @@ class CachedResult:
          [== @version] ->
             true
          [== [@version + 1]] ->
-            dirty = intersect{@deps, the-patch}
+            dirty = intersect{@deps, the-patch, @dir}
             if dirty:
                false
             else:
@@ -87,13 +87,17 @@ class Reactive:
                   @render{args, key, the-patch}
 
    render{args, key = args-key{args}, outstanding-patch = null} =
+
+      ;; outstanding-patch may be given when we get something rendered
+      ;; from a previous version?
+
       deps = Object.create{null}
       var version = null
       pargs = args each deprox! arg ->
          version or= arg[VERSION]
          read-proxy{arg, deps}
       res = @renderfn.apply{@, pargs}
-      cache = CachedResult{res, deps, version, outstanding-patch}
+      cache = CachedResult{res, deps, @dir, version, outstanding-patch}
       tuck{res, "::reactive", [@]}
       tuck{res, "::arguments", args}
       tuck{res, "::cached", cache}
@@ -105,11 +109,12 @@ class System:
 
    constructor{@origin, @render} =
       @basis = fork{@origin, true}
+      @dir = directory{@basis}
       @value = @render{@basis}
       @version = 1
 
    update{the-patch} =
-      patch{@basis, the-patch}
+      patch{@basis, the-patch, @dir}
       @value = @value["::reactive"].update{the-patch, {@basis}}
       @value
 

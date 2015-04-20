@@ -39,13 +39,14 @@ object-proxy{obj, tracks, patch, var prevent-dirty-reads = true} =
 
    id = obj[ID]
    obj-tracks = tracks and id and [tracks[id] or= {=}]
-   if obj-tracks:
-      tuck{obj-tracks, SOURCE, obj}
+   ;; if obj-tracks:
+   ;;    tuck{obj-tracks, SOURCE, obj}
 
    obj-patch = patch and id and [patch[id] or= {=}]
-   if obj-patch:
-      tuck{obj-patch, SOURCE, obj}
-   else:
+   ;; if obj-patch:
+   ;;    tuck{obj-patch, SOURCE, obj}
+   ;; else:
+   if not obj-patch:
       prevent-dirty-reads = false
 
    getfn{name}{} =

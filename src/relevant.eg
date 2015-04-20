@@ -6,9 +6,9 @@ provide:
    intersect, changed-relevantly
 
 
-intersect{tracks, patch} =
+intersect{tracks, patch, dir} =
    items{patch} each {id, writes} ->
-      obj = writes[SOURCE]
+      obj = dir[id]
       reads = tracks[id]
       if reads and changed-relevantly{obj, reads, writes}:
          return true

@@ -24,6 +24,7 @@ directory{match v, dir = {=}} =
             dir[v[ID]] = deprox{v}
             iterate-properties{v} each {k, v2, replace} ->
                directory{v2, dir}
+            dir
          obj ->
             dir
       dir
