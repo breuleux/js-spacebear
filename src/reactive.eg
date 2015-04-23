@@ -33,20 +33,19 @@ class CachedResult:
       @walk{@value}
 
    walk{v} =
-      iterate-properties{v} each {k, match obj, make-patch} ->
+      iterate-properties{v} each {k, match obj, gen-patch} ->
          {"::reactive" => r, "::arguments" => args, "::cached" => cached} ->
-            @children.push with {k, v[ID], r, args, cached, make-patch}
+            @children.push with {k, v[ID], r, args, cached, gen-patch}
          else ->
             @walk{obj, patch}
       undefined
 
    transform-patch{the-patch, new-patch, dir} =
       do-children{} =
-         @children each data and {k, vid, r, args, cached, make-patch} ->
+         @children each data and {k, vid, r, args, cached, gen-patch} ->
             if not cached.transform-patch{the-patch, new-patch, dir}:
                new-value = r.render-with-patch{the-patch, new-patch, args, dir}
-               new-patch[vid] or= {=}
-               new-patch[vid][k] = make-patch{new-value}
+               gen-patch{new-patch, new-value}
 
       match the-patch[VERSION]:
          [== [@version + 1]] ->

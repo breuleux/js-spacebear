@@ -97,11 +97,11 @@ iterate-properties{match obj} =
 
 
 object-iterate-properties{obj} =
+   id = obj[ID]
    items{obj} each {k, v} ->
-      ;; {k, v, replace} where
-      ;;    replace{new-v} = obj[k] = new-v
       {k, v, gen-patch} where
-         gen-patch{new-v} =
-            #update{new-v}
+         gen-patch{patch, new-v} =
+            patch[id] or= {=}
+            patch[id][k] = #update{new-v}
 
 
