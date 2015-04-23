@@ -49,6 +49,7 @@ make-struct{name, fields, methods} =
       value = 1
       writable = true
       enumerable = false
+      configurable = true
    }
 
    ;; proto.validate or= {} -> this
