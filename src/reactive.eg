@@ -1,5 +1,4 @@
 
-
 require:
    "./index" ->
       deprox
@@ -29,38 +28,41 @@ args-key{args} =
 
 class CachedResult:
 
-   constructor{@value, @deps, @dir, @version, patch = null} =
+   constructor{@value, @deps, @version, @maybe-dirty-children = false} =
       @children = {}
-      @walk{@value, patch}
+      @walk{@value}
 
-   walk{v, patch = null} =
-      iterate-properties{v} each {k, match obj, replace} ->
+   walk{v} =
+      iterate-properties{v} each {k, match obj, make-patch} ->
          {"::reactive" => r, "::arguments" => args, "::cached" => cached} ->
-            if patch:
-               new-value = r.update{patch, args}
-               replace{new-value}
-               @children.push with {v, r, args, r["::cached"], replace}
-            else:
-               @children.push with {v, r, args, cached, replace}
+            @children.push with {k, v[ID], r, args, cached, make-patch}
          else ->
             @walk{obj, patch}
       undefined
 
-   update{the-patch} =
+   transform-patch{the-patch, new-patch, dir} =
+      do-children{} =
+         @children each data and {k, vid, r, args, cached, make-patch} ->
+            if not cached.transform-patch{the-patch, new-patch, dir}:
+               new-value = r.render-with-patch{the-patch, new-patch, args, dir}
+               new-patch[vid] or= {=}
+               new-patch[vid][k] = make-patch{new-value}
+
       match the-patch[VERSION]:
-         [== @version] ->
-            true
          [== [@version + 1]] ->
-            dirty = intersect{@deps, the-patch, @dir}
+            dirty = intersect{@deps, the-patch, dir}
             if dirty:
                false
             else:
-               @children each data and {v, r, args, cached, replace} ->
-                  if not cached.update{the-patch}:
-                     new-value = r.update{the-patch, args}
-                     replace{new-value}
-                     data[3] = new-value["::cached"]
+               do-children{}
                @version += 1
+               true
+         [== @version] ->
+            if @maybe-dirty-children:
+               @maybe-dirty-children = false
+               do-children{}
+               true
+            else:
                true
          else ->
             ;; At least one patch was skipped, so we have to recompile
@@ -72,51 +74,58 @@ class Reactive:
    constructor{@renderfn} =
       @argmap = {=}
 
-   update{the-patch = null, args} =
+   render-with-patch{the-patch, new-patch, args, dir} =
       key = args-key{args}
-      match @argmap[key]:
-         undefined? ->
-            @render{args, key}
-         cached when not the-patch ->
-            cached.value
-         cached ->
-            match cached.update{the-patch}:
-               true? ->
-                  cached.value
-               false? ->
-                  @render{args, key, the-patch}
+      cached =
+         match @argmap[key]:
+            undefined? ->
+               @render-cache-object{args}
+            cached ->
+               cached
+      @argmap[key] = cached
+      if the-patch:
+         if not cached.transform-patch{the-patch, new-patch, dir}:
+            delete @argmap[key]
+            return @render-with-patch{the-patch, new-patch, args, dir}
+      cached.value
 
-   render{args, key = args-key{args}, outstanding-patch = null} =
-
-      ;; outstanding-patch may be given when we get something rendered
-      ;; from a previous version?
-
-      deps = Object.create{null}
+   render-cache-object{args} =
+      deps = {=}
       var version = null
       pargs = args each deprox! arg ->
          version or= arg[VERSION]
          read-proxy{arg, deps}
-      res = @renderfn.apply{@, pargs}
-      cache = CachedResult{res, deps, @dir, version, outstanding-patch}
+      res = identify{@renderfn.apply{@, pargs}}
+      cache = CachedResult{res, deps, version, true}
       tuck{res, "::reactive", [@]}
       tuck{res, "::arguments", args}
       tuck{res, "::cached", cache}
-      @argmap[key] = cache
-      res
+      cache
+
+   render{args} =
+      @render-cache-object{args}.value
 
 
 class System:
 
    constructor{@origin, @render} =
-      @basis = fork{@origin, true}
-      @dir = directory{@basis}
+      @basis = fork{@origin}
+      @bdir = directory{@basis}
+
       @value = @render{@basis}
+      @vdir = directory{@value}
+
       @version = 1
 
    update{the-patch} =
-      patch{@basis, the-patch, @dir}
-      @value = @value["::reactive"].update{the-patch, {@basis}}
-      @value
+      patch{@basis, the-patch, @bdir}
+      new-patch = {=}
+      tuck{new-patch, VERSION, @version}
+      @value = @value["::reactive"].render-with-patch{
+         the-patch, new-patch, {@basis}, @bdir
+      }
+      directory{@value, @vdir}
+      patch{@value, new-patch, @vdir}
 
    transact{fn, Array! roots = @basis} =
       let patch = Object.create{null}
@@ -127,14 +136,9 @@ class System:
       @update{patch}
 
 
-
 reactive-function{render} =
    r = Reactive{render}
    rval{*args} =
-      r.update{args}
+      r.render-with-patch{null, null, args, null}
    rval.orig = render
    rval
-
-
-
-

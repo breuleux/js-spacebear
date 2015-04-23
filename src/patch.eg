@@ -61,6 +61,7 @@ patch{value, p, dir = directory{value}} =
 
 
 object-patch{identify! obj, p} =
+
    if obj[VERSION] === p[VERSION]:
       return obj
    tuck{obj, VERSION, p[VERSION]}
@@ -97,7 +98,10 @@ iterate-properties{match obj} =
 
 object-iterate-properties{obj} =
    items{obj} each {k, v} ->
-      {k, v, replace} where
-         replace{new-v} = obj[k] = new-v
+      ;; {k, v, replace} where
+      ;;    replace{new-v} = obj[k] = new-v
+      {k, v, gen-patch} where
+         gen-patch{new-v} =
+            #update{new-v}
 
 
