@@ -14,7 +14,7 @@ fork{match value, dir = {=}} =
    null? or undefined? or Number? or String? or Symbol? or Boolean? ->
       value
 
-   when dir[value[ID]] ->
+   when dir[value[ID] or -1] ->
       dir[value[ID]]
 
    {fork => Function?} ->

@@ -1,7 +1,10 @@
 
 require:
    "./fork" -> fork
-   "./patch" -> patch
+   "./patch" ->
+      patch
+      array-patch
+      array-iterate-properties
    "./proxy" ->
       proxy, deprox
    "./util" ->
@@ -10,15 +13,15 @@ require:
    util -> inspect
 
 provide:
-   SBArray
+   SBArray, A
 
 
 class SBArray:
 
-   constructor{*entries} =
+   constructor{entries} =
       identify{@}
+      tuck{@, VERSION, 1}
       @_a = entries each x -> x
-
 
    .get{i} =
       if i < 0 or i >= @_a.length:
@@ -77,23 +80,32 @@ class SBArray:
       rval
 
    patch{p} =
-      splices = p??[self[ID]]??["@splice"]
-      if not splices:
-         return
-      enumerate{splices}.reverse{} each {i, match} ->
-         {n, repl} ->
-            @splice{i, n, *repl}
-         else ->
-            pass
-      undefined
+      array-patch{@_a, p, @}
 
    iterate-properties{} =
-      enumerate{@_a} each {i, v} ->
-         {i, v, replace} where
-            replace{new-v} = @_a[i] = v
+      array-iterate-properties{@_a, @}
 
    changed-relevantly{reads, writes} =
-      pass
+      match writes["@splice"]:
+         undefined? ->
+            false
+         splices ->
+            var mask = 3
+            taints = splices each
+               undefined? -> 3 &+ mask
+               {1, {_}} -> 1 &+ mask
+               else -> [mask = 0; 0]
+            items{reads} each
+               {"@iter", {i, j, stick}} ->
+                  if stick and taints[taints.length - 1] != 3:
+                     return true
+                  taints.slice{i, j} each
+                     3 -> pass
+                     else -> return true
+               {n, v} when v ->
+                  if taints[n] != 3:
+                     return true
+      false
 
 
 SBArray.prototype[Symbol.iterator]{} =
@@ -119,13 +131,13 @@ sbarray-proxy{obj, tracks, patch, var prevent-dirty-reads = true} =
    else:
       prevent-dirty-reads = false
 
-   update-iter{match, i, j} =
+   update-iter{match, i, j, stick-to-end = false} =
       undefined? ->
-         {i, j}
+         {i, j, stick-to-end}
       {i2, j2} ->
-         {Math.min{i, i2}, Math.max{j, j2}}
+         {Math.min{i, i2}, Math.max{j, j2}, stick-to-end}
       else ->
-         {i, j}
+         {i, j, stick-to-end}
 
    prox = Object.create{Object.create{SBArray.prototype} &: [getters & setters]} where
 
@@ -136,14 +148,15 @@ sbarray-proxy{obj, tracks, patch, var prevent-dirty-reads = true} =
                   '''Cannot access index '{i}' after setting it.'''
             if obj-tracks: obj-tracks[i] = true
             proxy{obj.get{i}, tracks, patch, prevent-dirty-reads}
-         slice{i = 0, j = a.length} =
+         slice{i = 0, var j = null} =
+            stick = if{j === null, [j = a.length; true], false}
             if obj-tracks:
-               obj-tracks["@iter"] = update-iter{obj-tracks["@iter"], i, j}
+               obj-tracks["@iter"] = update-iter{obj-tracks["@iter"], i, j, stick}
             obj.slice{i, j} each* x ->
                proxy{x, tracks, patch, prevent-dirty-reads}
          ^Symbol.iterator = {} ->
             proxies = obj each x -> proxy{x, tracks, patch, prevent-dirty-reads}
-            if obj-tracks: obj-tracks["@iter"] = {0, a.length}
+            if obj-tracks: obj-tracks["@iter"] = {0, a.length, true}
             proxies[Symbol.iterator]{}
       }
 
@@ -192,4 +205,7 @@ sbarray-proxy{obj, tracks, patch, var prevent-dirty-reads = true} =
    tuck{prox, ._a, a}
 
    prox
+
+
+A{*entries} = SBArray{entries}
 

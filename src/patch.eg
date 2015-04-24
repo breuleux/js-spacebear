@@ -9,6 +9,8 @@ provide:
    directory
    patch, patch-shallow
    iterate-properties
+   object-patch, array-patch
+   object-iterate-properties, array-iterate-properties
 
 
 directory{match v, dir = {=}} =
@@ -42,9 +44,8 @@ patch-shallow{match value, p} =
    {patch => Function?} ->
       deprox{value}.patch{p}
 
-   Array? ->
-      throw E.spacebear.patch with
-         'Cannot patch arrays. Wrap with spacebear.Array.'
+   Array? arr ->
+      array-patch{deprox{arr}, p}
 
    deprox! obj ->
       object-patch{deprox{obj}, p}
@@ -60,13 +61,14 @@ patch{value, p, dir = directory{value}} =
          directory{v, dir}
 
 
-object-patch{identify! obj, p} =
+object-patch{obj, p, wrapper = obj} =
 
-   if obj[VERSION] === p[VERSION]:
+   identify{wrapper}
+   if wrapper[VERSION] === p[VERSION]:
       return obj
-   tuck{obj, VERSION, p[VERSION]}
+   tuck{wrapper, VERSION, p[VERSION]}
 
-   match p[obj[ID]]:
+   match p[wrapper[ID]]:
       undefined? -> pass
       items! [each {field, match}] ->
          #update{value} ->
@@ -74,6 +76,22 @@ object-patch{identify! obj, p} =
 
    obj
 
+array-patch{arr, p, wrapper = arr} =
+
+   identify{wrapper}
+   if wrapper[VERSION] === p[VERSION]:
+      return arr
+   tuck{wrapper, VERSION, p[VERSION]}
+
+   splices = p??[wrapper[ID]]??["@splice"]
+   if not splices:
+      return
+   enumerate{splices}.reverse{} each {i, match} ->
+      {n, repl} ->
+         arr.splice{i, n, *repl}
+      else ->
+         pass
+   undefined
 
 
 iterate-properties{match obj} =
@@ -88,20 +106,27 @@ iterate-properties{match obj} =
    {iterate-properties => Function?} ->
       deprox{obj}.iterate-properties{}
 
-   Array? ->
-      throw E.spacebear.iterate with
-         'Cannot iterate arrays. Wrap with spacebear.Array.'
+   Array? arr ->
+      array-iterate-properties{deprox{arr}}
 
    else ->
       object-iterate-properties{deprox{obj}}
 
 
-object-iterate-properties{obj} =
-   id = obj[ID]
+object-iterate-properties{obj, wrapper = obj} =
+   id = wrapper[ID]
    items{obj} each {k, v} ->
       {k, v, gen-patch} where
          gen-patch{patch, new-v} =
             patch[id] or= {=}
             patch[id][k] = #update{new-v}
 
+array-iterate-properties{arr, wrapper = arr} =
+   id = wrapper[ID]
+   enumerate{arr} each {i, v} ->
+      {i, v, gen-patch} where
+         gen-patch{patch, new-v} =
+            patch[id] or= {=}
+            patch[id]["@splice"] or= Array{arr.length + 1}
+            patch[id]["@splice"][i] = {1, {new-v}}
 
