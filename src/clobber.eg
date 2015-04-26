@@ -1,0 +1,43 @@
+
+require:
+   "./util" ->
+      identify, ID
+   "./proxy" ->
+      deprox
+
+provide:
+   clobber
+
+
+clobber{identify! match value, new-value, patch} =
+
+   null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+      true
+
+   {clobber => Function?} ->
+      deprox{value}.clobber{new-value, patch}
+
+   Array? ->
+      array-clobber{deprox{value}, new-value, patch}
+
+   else ->
+      object-clobber{deprox{value}, new-value, patch}
+
+
+array-clobber{arr, new-arr, patch} =
+   if not Array? new-arr:
+      return false
+   true
+
+
+object-clobber{obj, new-obj, patch} =
+   if Object.get-prototype-of{obj} !== Object.get-prototype-of{new-obj}:
+      return false
+   obj-patch = [patch[obj[ID]] or= {=}]
+   items{obj} each
+      {k, v} when not Object.has-own-property.call{new-obj, k} ->
+         obj-patch[k] = #delete{}
+   items{new-obj} each {k, v} when v !== obj[k] ->
+      obj-patch[k] = #update{v}
+   true
+
