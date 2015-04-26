@@ -247,51 +247,55 @@ describe "clobber":
    before-each:
       identify! @x = {a = 1, b = 2}
       @xid = @x[ID]
-      @clobber{y} =
-         the-patch = {=}
-         if not clobber{@x, y, the-patch}:
-            throw E.noclobber{}
-         the-patch[@xid]
+      @clobber{y, expect-clobber = true} =
+         rval = clobber{@x, y}
+         assert rval == y
+         if expect-clobber:
+            assert rval === @x
+            assert rval !== y
+         else:
+            assert rval !== @x
+            assert rval === y
+         rval
 
    it "works":
-      assert @clobber{{a = 3, b = 4}} == {
-         a = #update{3}
-         b = #update{4}
-      }
-
-   it "is parsimonious":
-      assert @clobber{{a = 1, b = 4}} == {
-         b = #update{4}
-      }
+      @clobber{{a = 3, b = 4}}
 
    it "deletes missing properties":
-      assert @clobber{{b = 2}} == {
-         a = #delete{}
-      }
+      @clobber{{b = 2}}
+
+   it "deletes all properties":
+      @clobber{{=}}
 
    it "adds new properties":
-      assert @clobber{{a = 1, b = 2, c = 3}} == {
-         c = #update{3}
-      }
+      @clobber{{a = 3, b = 4, c = 5}}
 
-   it "tying it all together":
-      assert @clobber{{b = 3, c = 4}} == {
-         a = #delete{}
-         b = #update{3}
-         c = #update{4}
-      }
+   it "transfers ID":
+      y = identify{{a = 3, b = 4, c = 5}}
+      r = @clobber{y}
+      assert r[ID] === y[ID]
+      assert r[ID] !== @xid
 
-   it "delete all properties":
-      assert @clobber{{=}} == {
-         a = #delete{}
-         b = #delete{}
-      }
+   it "recursive":
+      x = identify{{x = identify{{a = 1, b = 2}}, y = identify{{c = 3, d = 4}}}}
+      y = identify{{x = identify{{a = 6, m = 7}}, y = identify{{n = 9}}}}
+      r = clobber{x, y}
+      assert x == y
 
    it "can only clobber if same prototype":
-      expect-error E.noclobber:
-         @clobber{"baklava"}
-      expect-error E.noclobber:
-         @clobber{{}}
-      expect-error E.noclobber:
-         @clobber{Object.create{{=}}}
+      y = Object.create{{=}}
+      @clobber{y, false}
 
+   it "wrap":
+      test-wrap{x} = 'success {x.join{" "}}'
+      x = {a = 1, b = 2}
+      y = {1, 2, 3}
+      r = clobber{x, y, test-wrap}
+      assert r == 'success 1 2 3'
+
+   it "wrap deep":
+      test-wrap{x} = 'success {x.join{" "}}'
+      x = {a = {x = 1, y = 2}}
+      y = {a = {1, 2, 3}}
+      r = clobber{x, y, test-wrap}
+      assert r == {a = 'success 1 2 3'}

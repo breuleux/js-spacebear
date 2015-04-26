@@ -13,12 +13,16 @@ require:
       directory, patch, iterate-properties
    "./relevant" ->
       intersect, changed-relevantly
+   "./clobber" ->
+      clobber
 
 provide:
+   identify, tuck
    ID, FORKID, VERSION, SOURCE
    make-struct, struct
    read-proxy, write-proxy, deprox
    fork, directory, patch, iterate-properties
    changed-relevantly
    intersect
+   clobber
 

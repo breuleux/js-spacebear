@@ -1,7 +1,7 @@
 
 require:
    "./util" ->
-      identify, ID
+      identify, tuck, ID, VERSION
    "./proxy" ->
       deprox
 
@@ -9,35 +9,39 @@ provide:
    clobber
 
 
-clobber{identify! match value, new-value, patch} =
+clobber{match value, new-value, wrap = x -> x} =
 
    null? or undefined? or Number? or String? or Symbol? or Boolean? ->
-      true
+      new-value
 
    {clobber => Function?} ->
-      deprox{value}.clobber{new-value, patch}
+      deprox{value}.clobber{new-value, wrap}
 
    Array? ->
-      array-clobber{deprox{value}, new-value, patch}
+      array-clobber{deprox{value}, new-value, wrap}
 
    else ->
-      object-clobber{deprox{value}, new-value, patch}
+      object-clobber{deprox{value}, new-value, wrap}
 
 
-array-clobber{arr, new-arr, patch} =
+array-clobber{arr, new-arr, wrap} =
    if not Array? new-arr:
-      return false
-   true
+      return wrap{new-arr}
+   
 
 
-object-clobber{obj, new-obj, patch} =
+object-clobber{obj, new-obj, wrap} =
    if Object.get-prototype-of{obj} !== Object.get-prototype-of{new-obj}:
-      return false
-   obj-patch = [patch[obj[ID]] or= {=}]
+      return wrap{new-obj}
    items{obj} each
       {k, v} when not Object.has-own-property.call{new-obj, k} ->
-         obj-patch[k] = #delete{}
-   items{new-obj} each {k, v} when v !== obj[k] ->
-      obj-patch[k] = #update{v}
-   true
+         delete obj[k]
+   items{new-obj} each {k, match v} ->
+      === obj[k] ->
+         pass
+      else ->
+         obj[k] = clobber{obj[k], v, wrap}
+   {ID, VERSION} each field ->
+      tuck{obj, field, new-obj[field]}
+   obj
 
