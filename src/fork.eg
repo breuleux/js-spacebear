@@ -6,7 +6,7 @@ require:
       deprox
 
 provide:
-   fork, object-fork
+   fork, array-fork, object-fork
 
 
 fork{match value, dir = {=}} =
@@ -21,11 +21,19 @@ fork{match value, dir = {=}} =
       deprox{value}.fork{dir}
 
    Array? ->
-      throw E.spacebear.fork with
-         'Cannot fork arrays. Wrap with spacebear.Array.'
+      array-fork{deprox{value}, dir}
 
    else ->
       object-fork{deprox{value}, dir}
+
+
+array-fork{identify! arr, dir} =
+   rval = arr each x -> fork{x, dir}
+   dir[arr[ID]] = rval
+   tuck{rval, ID, arr[ID]}
+   tuck{rval, FORKID, next-id{}}
+   tuck{rval, VERSION, 1}
+   rval
 
 
 object-fork{match value, dir} =
