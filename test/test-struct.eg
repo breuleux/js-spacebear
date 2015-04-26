@@ -10,8 +10,10 @@ require-macros:
 
 require:
    "../src/index" ->
+      identify
       make-struct, read-proxy, write-proxy
       fork, directory, patch, changed-relevantly, intersect
+      clobber
       ID
 
 
@@ -239,4 +241,57 @@ describe "changed-relevantly and intersect":
       assert changed-relevantly{@clara.mother, @tracks[aid], @patch[aid]}
       assert intersect{@tracks, @patch, @dir}
 
+
+describe "clobber":
+
+   before-each:
+      identify! @x = {a = 1, b = 2}
+      @xid = @x[ID]
+      @clobber{y} =
+         the-patch = {=}
+         if not clobber{@x, y, the-patch}:
+            throw E.noclobber{}
+         the-patch[@xid]
+
+   it "works":
+      assert @clobber{{a = 3, b = 4}} == {
+         a = #update{3}
+         b = #update{4}
+      }
+
+   it "is parsimonious":
+      assert @clobber{{a = 1, b = 4}} == {
+         b = #update{4}
+      }
+
+   it "deletes missing properties":
+      assert @clobber{{b = 2}} == {
+         a = #delete{}
+      }
+
+   it "adds new properties":
+      assert @clobber{{a = 1, b = 2, c = 3}} == {
+         c = #update{3}
+      }
+
+   it "tying it all together":
+      assert @clobber{{b = 3, c = 4}} == {
+         a = #delete{}
+         b = #update{3}
+         c = #update{4}
+      }
+
+   it "delete all properties":
+      assert @clobber{{=}} == {
+         a = #delete{}
+         b = #delete{}
+      }
+
+   it "can only clobber if same prototype":
+      expect-error E.noclobber:
+         @clobber{"baklava"}
+      expect-error E.noclobber:
+         @clobber{{}}
+      expect-error E.noclobber:
+         @clobber{Object.create{{=}}}
 
