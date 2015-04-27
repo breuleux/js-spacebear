@@ -72,10 +72,10 @@ class SBArray:
 
    fork{dir} =
       rval = Object.create{SBArray.prototype}
-      dir[this[ID]] = rval
       tuck{rval, ID, this[ID]}
       tuck{rval, FORKID, next-id{}}
       tuck{rval, VERSION, 1}
+      dir.add{rval, false}
       rval._a = @_a each x -> fork{x, dir}
       rval
 

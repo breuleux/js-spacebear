@@ -8,7 +8,7 @@ provide:
 
 intersect{tracks, patch, dir} =
    items{patch} each {id, writes} ->
-      obj = dir[id]
+      obj = dir.get{id}
       reads = tracks[id]
       if reads and changed-relevantly{obj, reads, writes}:
          return true

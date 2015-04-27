@@ -4,18 +4,20 @@ require:
       tuck, identify, next-id, ID, FORKID, VERSION, SOURCE
    "./proxy" ->
       deprox
+   "./patch" ->
+      Directory
 
 provide:
    fork, array-fork, object-fork
 
 
-fork{match value, dir = {=}} =
+fork{match value, dir = Directory{}} =
 
    null? or undefined? or Number? or String? or Symbol? or Boolean? ->
       value
 
-   when dir[value[ID] or -1] ->
-      dir[value[ID]]
+   when dir.get{value[ID] or -1} ->
+      dir.get{value[ID]}
 
    {fork => Function?} ->
       deprox{value}.fork{dir}
@@ -29,10 +31,10 @@ fork{match value, dir = {=}} =
 
 array-fork{identify! arr, dir} =
    rval = arr each x -> fork{x, dir}
-   dir[arr[ID]] = rval
    tuck{rval, ID, arr[ID]}
    tuck{rval, FORKID, next-id{}}
    tuck{rval, VERSION, 1}
+   dir.add{rval, false}
    rval
 
 
@@ -44,10 +46,11 @@ object-fork{match value, dir} =
 
    identify! obj ->
       rval = Object.create{Object.get-prototype-of{obj}}
-      dir[obj[ID]] = rval
-      items{obj} each {key, value} ->
-         rval[key] = fork{value, dir}
+      ;; dir[obj[ID]] = rval
       tuck{rval, ID, obj[ID]}
       tuck{rval, FORKID, next-id{}}
       tuck{rval, VERSION, 1}
+      dir.add{rval, false}
+      items{obj} each {key, value} ->
+         rval[key] = fork{value, dir}
       rval
