@@ -299,3 +299,30 @@ describe "clobber":
       y = {a = {1, 2, 3}}
       r = clobber{x, y, test-wrap}
       assert r == {a = 'success 1 2 3'}
+
+   it "array":
+      x = {1, 2, 3, 4}
+      y = {5, 6}
+      r = clobber{x, y}
+      assert r == y
+
+   it "array reorders elements":
+      a = identify{{a = 1}}
+      b = identify{{b = 2}}
+      x = {a, b}
+      y = {fork{b} &: {b = 3}, fork{a} &: {a = 4}}
+      r = clobber{x, y}
+      assert r == {{b = 3}, {a = 4}}
+      assert r[0] === b
+      assert r[1] === a
+
+   it "array does not re-clobber duplicate elements":
+      a = identify{{a = 1}}
+      b = identify{{b = 2}}
+      x = {a, b, a}
+      y = {fork{b} &: {b = 3}, fork{a} &: {a = 4}, {c = 7}}
+      r = clobber{x, y}
+      assert r == {{b = 3}, {a = 4}, {c = 7}}
+      assert r[0] === b
+      assert r[1] === a
+

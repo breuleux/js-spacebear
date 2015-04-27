@@ -1,7 +1,7 @@
 
 require:
    "./util" ->
-      identify, tuck, ID, VERSION
+      identify, tuck, ID, CLOBBERID, VERSION
    "./proxy" ->
       deprox
 
@@ -25,9 +25,34 @@ clobber{match value, new-value, wrap = x -> x} =
 
 
 array-clobber{arr, new-arr, wrap} =
+
    if not Array? new-arr:
       return wrap{new-arr}
-   
+
+   idpos = {=}
+   enumerate{arr} each {i, match x} ->
+      when x[ID] ->
+         idpos[x[ID]] = {i, x}
+
+   enumerate{new-arr} each {match i, v} ->
+      > arr.length ->
+         arr.push{wrap{v}}
+      else ->
+         v0 = arr[i]
+         vid = v[ID]
+         if vid and idpos[vid]:
+            {j, x} = idpos[vid]
+            delete idpos[vid]
+            if j > i: arr[j] = null
+            arr[i] = clobber{x, v, wrap}
+         else:
+            arr[i] = clobber{v0, v, wrap}
+
+   delta = arr.length - new-arr.length
+   if delta > 0:
+      arr.splice{new-arr.length, delta}
+
+   arr
 
 
 object-clobber{obj, new-obj, wrap} =
@@ -37,7 +62,8 @@ object-clobber{obj, new-obj, wrap} =
       {k, v} when not Object.has-own-property.call{new-obj, k} ->
          delete obj[k]
    items{new-obj} each {k, match v} ->
-      === obj[k] ->
+      do: v0 = obj[k]
+      === v0 or when v0 and v0[ID] and v and v[ID] == v0[ID] ->
          pass
       else ->
          obj[k] = clobber{obj[k], v, wrap}
