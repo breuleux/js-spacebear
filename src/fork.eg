@@ -34,7 +34,7 @@ array-fork{identify! arr, dir} =
    tuck{rval, ID, arr[ID]}
    tuck{rval, FORKID, next-id{}}
    tuck{rval, VERSION, 1}
-   dir.add{rval, false}
+   dir.enter{rval, false}
    rval
 
 
@@ -50,7 +50,7 @@ object-fork{match value, dir} =
       tuck{rval, ID, obj[ID]}
       tuck{rval, FORKID, next-id{}}
       tuck{rval, VERSION, 1}
-      dir.add{rval, false}
+      dir.enter{rval, false}
       items{obj} each {key, value} ->
          rval[key] = fork{value, dir}
       rval

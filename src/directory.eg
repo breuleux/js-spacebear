@@ -12,32 +12,57 @@ provide:
 
 
 class Directory:
+
    constructor{} =
       @dir = {=}
       Object.freeze{@}
+
    get-all{id} =
       match @dir[id]:
          undefined? -> {}
-         objs -> items{objs} each {k, v} -> v
+         objs -> items{objs} each {k, {_, v}} -> v
+
    get{id} =
       @get-all{id}[0]
-   add{v, add-children = true} =
-      sub = @dir[v[ID]] or= {=}
-      fid = v[FORKID] or -1
-      if sub[fid] === undefined:
-         sub[fid] = deprox{v}
-         if add-children:
-            iterate-properties{v} each {k, v2, replace} ->
-               directory{v2, @}
-      @
+
+   enter{match v, add-children = true} =
+      null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+         @
+      else ->
+         sub = @dir[v[ID]] or= {=}
+         fid = v[FORKID] or -1
+         match sub[fid]:
+            undefined? ->
+               sub[fid] = {1, deprox{v}}
+               if add-children:
+                  iterate-properties{v} each {k, v2, replace} ->
+                     @enter{v2, true}
+            {count, v} ->
+               sub[fid] = {count + 1, deprox{v}}
+         @
+
+   exit{match v, remove-children = true} =
+      null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+         @
+      else ->
+         sub = @dir[v[ID]] or= {=}
+         fid = v[FORKID] or -1
+         match sub[fid]:
+            undefined? ->
+               pass
+            {match count, v} ->
+               > 1 ->
+                  sub[fid] = {count - 1, deprox{v}}
+               else ->
+                  delete sub[fid]
+                  if remove-children:
+                     iterate-properties{v} each {k, v2, replace} ->
+                        @exit{v2, true}
+         @
 
 
-directory{match v, dir = Directory{}} =
+directory{v, dir = Directory{}} =
+   dir.enter{v}
 
-   null? or undefined? or Number? or String? or Symbol? or Boolean? ->
-      dir
-
-   else ->
-      dir.add{v}
 
 
