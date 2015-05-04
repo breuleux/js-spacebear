@@ -4,6 +4,7 @@ require:
    "./patch" ->
       patch
       array-patch
+   "./iter" ->
       array-iterate-properties
    "./proxy" ->
       proxy, deprox

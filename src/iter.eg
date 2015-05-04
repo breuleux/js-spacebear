@@ -1,0 +1,49 @@
+
+require:
+   "./util" ->
+      ID
+   "./proxy" ->
+      deprox
+
+provide:
+   iterate-properties
+   object-iterate-properties
+   array-iterate-properties
+
+
+iterate-properties{match obj} =
+
+   null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+      {}
+
+   Object.is-frozen? ->
+      throw E.spacebear.patch with
+         'Cannot iterate frozen objects.'
+
+   {iterate-properties => Function?} ->
+      deprox{obj}.iterate-properties{}
+
+   Array? arr ->
+      array-iterate-properties{deprox{arr}}
+
+   else ->
+      object-iterate-properties{deprox{obj}}
+
+
+object-iterate-properties{obj, wrapper = obj} =
+   id = wrapper[ID]
+   items{obj} each {k, v} ->
+      {k, v, gen-patch} where
+         gen-patch{patch, new-v} =
+            patch[id] or= {=}
+            patch[id][k] = #update{new-v}
+
+array-iterate-properties{arr, wrapper = arr} =
+   id = wrapper[ID]
+   enumerate{arr} each {i, v} ->
+      {i, v, gen-patch} where
+         gen-patch{patch, new-v} =
+            patch[id] or= {=}
+            patch[id]["@splice"] or= Array{arr.length + 1}
+            patch[id]["@splice"][i] = {1, {new-v}}
+

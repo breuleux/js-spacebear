@@ -4,7 +4,7 @@ require:
       tuck, identify, next-id, ID, FORKID, VERSION, SOURCE
    "./proxy" ->
       deprox
-   "./patch" ->
+   "./directory" ->
       Directory
 
 provide:

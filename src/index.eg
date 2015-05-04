@@ -10,7 +10,11 @@ require:
    "./fork" ->
       fork
    "./patch" ->
-      Directory, directory, patch, iterate-properties
+      patch
+   "./iter" ->
+      iterate-properties
+   "./directory" ->
+      Directory, directory
    "./relevant" ->
       intersect, changed-relevantly
    "./clobber" ->

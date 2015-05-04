@@ -1,0 +1,43 @@
+
+require:
+   "./util" ->
+      ID, FORKID
+   "./proxy" ->
+      deprox
+   "./iter" ->
+      iterate-properties
+
+provide:
+   Directory, directory
+
+
+class Directory:
+   constructor{} =
+      @dir = {=}
+      Object.freeze{@}
+   get-all{id} =
+      match @dir[id]:
+         undefined? -> {}
+         objs -> items{objs} each {k, v} -> v
+   get{id} =
+      @get-all{id}[0]
+   add{v, add-children = true} =
+      sub = @dir[v[ID]] or= {=}
+      fid = v[FORKID] or -1
+      if sub[fid] === undefined:
+         sub[fid] = deprox{v}
+         if add-children:
+            iterate-properties{v} each {k, v2, replace} ->
+               directory{v2, @}
+      @
+
+
+directory{match v, dir = Directory{}} =
+
+   null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+      dir
+
+   else ->
+      dir.add{v}
+
+

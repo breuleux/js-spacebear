@@ -4,46 +4,20 @@ require:
       tuck, identify, next-id, ID, FORKID, VERSION, SOURCE
    "./proxy" ->
       deprox
+   "./clobber" ->
+      clobber
+   "./iter" ->
+      iterate-properties
+   "./directory" ->
+      directory
 
 provide:
-   Directory, directory
    patch, patch-shallow
-   iterate-properties
    object-patch, array-patch
-   object-iterate-properties, array-iterate-properties
 
 
-class Directory:
-   constructor{} =
-      @dir = {=}
-      Object.freeze{@}
-   get-all{id} =
-      match @dir[id]:
-         undefined? -> {}
-         objs -> items{objs} each {k, v} -> v
-   .get{id} =
-      @get-all{id}[0]
-   add{v, add-children = true} =
-      sub = @dir[v[ID]] or= {=}
-      fid = v[FORKID] or -1
-      if sub[fid] === undefined:
-         sub[fid] = deprox{v}
-         if add-children:
-            iterate-properties{v} each {k, v2, replace} ->
-               directory{v2, @}
-      @
 
-
-directory{match v, dir = Directory{}} =
-
-   null? or undefined? or Number? or String? or Symbol? or Boolean? ->
-      dir
-
-   else ->
-      dir.add{v}
-
-
-patch-shallow{match value, p} =
+patch-shallow{match value, p, clobber = false} =
 
    null? or undefined? or Number? or String? or Symbol? or Boolean? ->
       pass
@@ -53,26 +27,27 @@ patch-shallow{match value, p} =
          'Cannot patch frozen objects.'
 
    {patch => Function?} ->
-      deprox{value}.patch{p}
+      deprox{value}.patch{p, clobber}
 
    Array? arr ->
-      array-patch{deprox{arr}, p}
+      array-patch{arr, p, arr, clobber}
 
    deprox! obj ->
-      object-patch{deprox{obj}, p}
+      object-patch{obj, p, obj, clobber}
       undefined
 
 
-patch{value, p, dir = directory{value}} =
+patch{value, p, dir = directory{value}, clobber = false} =
    items{p} each {id, obj-patch} ->
-      obj = dir.get{id}
-      patch-shallow{obj, p}
-      ;; Refresh directory
-      iterate-properties{obj} each {k, v, replace} ->
-         directory{v, dir}
+      ;; obj = dir.get{id}
+      dir.get-all{id} each obj ->
+         patch-shallow{obj, p}
+         ;; Refresh directory
+         iterate-properties{obj} each {k, v, replace} ->
+            directory{v, dir}
 
 
-object-patch{obj, p, wrapper = obj} =
+object-patch{obj, p, wrapper = obj, _clobber = false} =
 
    identify{wrapper}
    if wrapper[VERSION] === p[VERSION]:
@@ -83,11 +58,16 @@ object-patch{obj, p, wrapper = obj} =
       undefined? -> pass
       items! [each {field, match}] ->
          #update{value} ->
-            obj[field] = value
+            obj[field] =
+               if _clobber:
+                  clobber{obj[field], value}
+               else:
+                  value
 
    obj
 
-array-patch{arr, p, wrapper = arr} =
+array-patch{arr, p, wrapper = arr, _clobber = false} =
+   ;; TODO: _clobber
 
    identify{wrapper}
    if wrapper[VERSION] === p[VERSION]:
@@ -103,41 +83,4 @@ array-patch{arr, p, wrapper = arr} =
       else ->
          pass
    undefined
-
-
-iterate-properties{match obj} =
-
-   null? or undefined? or Number? or String? or Symbol? or Boolean? ->
-      {}
-
-   Object.is-frozen? ->
-      throw E.spacebear.patch with
-         'Cannot iterate frozen objects.'
-
-   {iterate-properties => Function?} ->
-      deprox{obj}.iterate-properties{}
-
-   Array? arr ->
-      array-iterate-properties{deprox{arr}}
-
-   else ->
-      object-iterate-properties{deprox{obj}}
-
-
-object-iterate-properties{obj, wrapper = obj} =
-   id = wrapper[ID]
-   items{obj} each {k, v} ->
-      {k, v, gen-patch} where
-         gen-patch{patch, new-v} =
-            patch[id] or= {=}
-            patch[id][k] = #update{new-v}
-
-array-iterate-properties{arr, wrapper = arr} =
-   id = wrapper[ID]
-   enumerate{arr} each {i, v} ->
-      {i, v, gen-patch} where
-         gen-patch{patch, new-v} =
-            patch[id] or= {=}
-            patch[id]["@splice"] or= Array{arr.length + 1}
-            patch[id]["@splice"][i] = {1, {new-v}}
 
