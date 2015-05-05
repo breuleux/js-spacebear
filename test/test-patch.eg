@@ -1,0 +1,76 @@
+
+require-macros:
+   "../src/struct" ->
+      struct
+   earl-mocha ->
+      describe, it, before, after, before-each, after-each
+      xdescribe, xit
+      assert, asserts
+      expect-error
+
+require:
+   "../src/index" ->
+      identify
+      make-struct, read-proxy, write-proxy
+      fork, directory, Directory
+      patch, changed-relevantly, intersect
+      clobber
+      ID, FORKID
+   "./people" ->
+      alice, bob, clara, donald
+      aid, bid, cid, did
+
+
+describe "patch":
+
+   before-each:
+      @data = {=}
+      @clara = fork{clara}
+      @clarap = write-proxy{@clara, @data}
+
+   it "updates mutable structures (shallow)":
+      @clarap.name = .clairette
+      @clarap.age = 21
+      assert @clara.name == .clara
+      assert @clara.age == 20
+      patch{@clara, @data}
+      assert @clara.name == .clairette
+      assert @clara.age == 21
+
+   it "updates mutable structures (deep)":
+      @clarap.name = .clairette
+      @clarap.mother.age = 21
+      assert @clara.name == .clara
+      assert @clara.mother.age == 51
+      patch{@clara, @data}
+      assert @clara.name == .clairette
+      assert @clara.mother.age == 21
+
+   it "updates all instances of an object":
+      @data = {=}
+      @donald = fork{donald}
+      @donaldp = write-proxy{@donald, @data}
+      @donaldp.mother.age = 21
+      patch{@donald, @data}
+      ;; donald's mother is also his father
+      assert @donald.mother.age == 21
+      assert @donald.father.age == 21
+
+   it "works multiple times":
+
+      @donald = fork{donald}
+      @dir = directory{@donald}
+
+      @data = {=}
+      @donaldp = write-proxy{@donald, @data}
+      @donaldp.mother.age = 21
+      @donaldp.father = fork{bob}
+      patch{@donald, @data, @dir}
+
+      @data = {=}
+      @donaldp = write-proxy{@donald, @data}
+      @donaldp.father.age = 99
+      patch{@donald, @data, @dir}
+
+      assert @donald.mother.age == 21
+      assert @donald.father.age == 99

@@ -1,0 +1,95 @@
+
+require-macros:
+   "../src/struct" ->
+      struct
+   earl-mocha ->
+      describe, it, before, after, before-each, after-each
+      xdescribe, xit
+      assert, asserts
+      expect-error
+
+require:
+   "../src/index" ->
+      identify
+      make-struct, read-proxy, write-proxy
+      fork, directory, Directory
+      patch, changed-relevantly, intersect
+      clobber
+      ID, FORKID
+   "./people" ->
+      alice, bob, clara, donald
+      aid, bid, cid, did
+
+
+describe "read-proxy":
+
+   before-each:
+      @data = {=}
+      @clara = read-proxy{clara, @data}
+
+   it "tracks reads (shallow)":
+      {@clara.name, @clara.age}
+      assert @data == {cid => {name = true, age = true}}
+
+   it "tracks reads (through methods)":
+      @clara.say-name{}
+      assert @data == {cid => {name = true}}
+
+   it "tracks reads (deep)":
+      {@clara.name, @clara.mother.age}
+      assert @data == {
+         cid => {name = true, mother = true}
+         aid => {age = true}
+      }
+
+   ;; it "can store a predetermined key":
+   ;;    @data = {=}
+   ;;    @clara = clara.read-proxy{@data, 1234}
+   ;;    {@clara.name, @clara.mother.age}
+   ;;    assert @data == {
+   ;;       cid => {name = 1234, mother = 1234}
+   ;;       aid => {age = 1234}
+   ;;    }
+
+
+describe "write-proxy":
+
+   before-each:
+      @data = {=}
+      @clara = write-proxy{clara, @data}
+
+   it "tracks writes (shallow)":
+      @clara.name = .clairette
+      @clara.age = 21
+      assert @data == {
+         cid => {
+            name = #update{.clairette}
+            age = #update{21}
+         }
+      }
+
+   it "tracks writes (through methods)":
+      @clara.get-older{10}
+      assert @data == {
+         cid => {
+            age = #update{30}
+         }
+      }
+
+   it "tracks writes (deep)":
+      @clara.name = .clairette
+      @clara.mother.age = 21
+      assert @data == {
+         cid => {
+            name = #update{.clairette}
+         }
+         aid => {
+            age = #update{21}
+         }
+      }
+
+   it "disallows reading what was just written":
+      @clara.name
+      @clara.name = .clairette
+      expect-error true:
+         @clara.name

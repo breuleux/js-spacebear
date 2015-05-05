@@ -1,0 +1,64 @@
+
+require-macros:
+   "../src/struct" ->
+      struct
+   earl-mocha ->
+      describe, it, before, after, before-each, after-each
+      xdescribe, xit
+      assert, asserts
+      expect-error
+
+require:
+   "../src/index" ->
+      identify
+      make-struct, read-proxy, write-proxy
+      fork, directory, Directory
+      patch, changed-relevantly, intersect
+      clobber
+      ID, FORKID
+   "./people" ->
+      alice, bob, clara, donald
+      aid, bid, cid, did
+
+
+describe "directory":
+
+   before-each:
+      @dir = Directory{}
+
+   it "can track multiple copies of the 'same' object":
+      a = {ID => 1, FORKID => 1_000_000, x = 1, y = 2}
+      @dir.enter{a}
+      assert @dir.get-all{1} == {a}
+
+      b = {ID => 1, FORKID => 1_000_001, x = 1, y = 2}
+      @dir.enter{b}
+      assert @dir.get-all{1} == {a, b}
+
+      c = fork{a, @dir, true}
+      @dir.enter{c}
+      assert @dir.get-all{1} == {a, b, c}
+
+   it "reference counting":
+      a = {ID => 1, FORKID => 1_000_000, x = 1}
+      b = {ID => 2, FORKID => 1_000_001, x = 2}
+      c = {ID => 3, FORKID => 1_000_002, x = 3}
+      d = {ID => 4, FORKID => 1_000_003, x = a, y = b}
+      e = {ID => 5, FORKID => 1_000_004, x = b, y = c}
+
+      {d, e} each entry ->
+         @dir.enter{entry}
+      {a, b, c, d, e} each entry ->
+         assert @dir.get-all{entry[ID]} == {entry}
+
+      @dir.exit{d}
+      {a, d} each entry ->
+         assert @dir.get-all{entry[ID]} == {}
+      {b, c, e} each entry ->
+         assert @dir.get-all{entry[ID]} == {entry}
+
+      @dir.exit{e}
+      {a, b, c, d, e} each entry ->
+         assert @dir.get-all{entry[ID]} == {}
+
+

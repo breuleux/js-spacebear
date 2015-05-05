@@ -1,0 +1,28 @@
+
+require-macros:
+   "../src/struct" -> struct
+
+require:
+   "../src/index" -> ID
+
+provide:
+   Person
+   alice, bob, clara, donald
+   aid, bid, cid, did
+
+struct Person:
+   name, age, mother, father
+   say-name{} =
+      'My name is {@name}!'
+   get-older{n = 1} =
+      @age += n
+
+alice = Person{name = .alice, age = 51}
+bob = Person{name = .bob, age = 56}
+clara = Person{name = .clara, age = 20, mother = alice, father = bob}
+donald = Person{name = .donald, age = 10, mother = alice, father = alice}
+
+aid = alice[ID]
+bid = bob[ID]
+cid = clara[ID]
+did = donald[ID]

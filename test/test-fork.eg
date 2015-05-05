@@ -1,0 +1,41 @@
+
+require-macros:
+   "../src/struct" ->
+      struct
+   earl-mocha ->
+      describe, it, before, after, before-each, after-each
+      xdescribe, xit
+      assert, asserts
+      expect-error
+
+require:
+   "../src/index" ->
+      identify
+      make-struct, read-proxy, write-proxy
+      fork, directory, Directory
+      patch, changed-relevantly, intersect
+      clobber
+      ID, FORKID
+   "./people" ->
+      alice, bob, clara, donald
+
+
+describe "fork":
+
+   before-each:
+      @clara = fork{clara}
+      @donald = fork{donald}
+
+   it "preserves information":
+      assert @clara.name == .clara
+      assert @clara.age == 20
+      assert @clara.mother.name == .alice
+      assert @clara.father.name == .bob
+
+   it "is deep":
+      assert @clara !== clara
+      assert @clara.mother !== clara.mother
+      assert @clara.father !== clara.father
+
+   it "preserves identity":
+      assert @donald.mother === @donald.father
