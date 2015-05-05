@@ -11,12 +11,12 @@ provide:
    fork, array-fork, object-fork
 
 
-fork{match value, dir = Directory{}} =
+fork{match value, dir = Directory{}, duplicate = false} =
 
    null? or undefined? or Number? or String? or Symbol? or Boolean? ->
       value
 
-   when dir.get{value[ID] or -1} ->
+   when not duplicate and dir.get{value[ID] or -1} ->
       dir.get{value[ID]}
 
    {fork => Function?} ->
