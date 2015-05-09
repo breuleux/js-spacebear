@@ -23,8 +23,9 @@ require:
 describe "fork":
 
    before-each:
-      @clara = fork{clara}
-      @donald = fork{donald}
+      @dir = Directory{}
+      @clara = @dir.fork{clara}
+      @donald = @dir.fork{donald}
 
    it "preserves information":
       assert @clara.name == .clara
@@ -37,5 +38,11 @@ describe "fork":
       assert @clara.mother !== clara.mother
       assert @clara.father !== clara.father
 
-   it "preserves identity":
+   it "maps same ID to same object if duplicate = false (default)":
       assert @donald.mother === @donald.father
+
+   it "creates copies for same ID if duplicate = true":
+      @dir = Directory{duplicate = true}
+      @clara = @dir.fork{clara}
+      @donald = @dir.fork{donald}
+      assert @donald.mother !== @donald.father

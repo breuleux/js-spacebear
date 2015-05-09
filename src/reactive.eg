@@ -6,7 +6,7 @@ require:
       iterate-properties
       intersect, directory
    "./util" ->
-      tuck, identify, ID, FORKID, VERSION
+      tuck, identify, fork-identify, ID, FORKID, VERSION
 
 provide:
    Reactive, reactive-function
@@ -19,8 +19,8 @@ arg-key{match x} =
       "S" + x
    null? or undefined? or Number? or Boolean? ->
       "P" + String{x}
-   deprox! identify! x ->
-      "O" + String{x[ID]} + ":" + String{x[FORKID] or ""}
+   deprox! identify! fork-identify! x ->
+      "O" + String{x[ID]} + ":" + String{x[FORKID]} ;; or ""}
 
 args-key{args} =
    args.map{arg-key}.join{"\x00"}
@@ -28,9 +28,12 @@ args-key{args} =
 
 class CachedResult:
 
-   constructor{@value, @deps, @version, @maybe-dirty-children = false} =
+   constructor{@value, @deps, @version
+               @maybe-dirty-children = false
+               @walk-later = false} =
       @children = {}
-      @walk{@value}
+      if not @walk-later:
+         @walk{@value}
 
    walk{v} =
       iterate-properties{v} each {k, match obj, gen-patch} ->
@@ -41,6 +44,10 @@ class CachedResult:
       undefined
 
    transform-patch{the-patch, new-patch, dir} =
+      if @walk-later:
+         @walk{@value}
+         @walk-later = false
+
       do-children{} =
          @children each data and {k, vid, r, args, cached, gen-patch} ->
             if not cached.transform-patch{the-patch, new-patch, dir}:
@@ -70,7 +77,7 @@ class CachedResult:
 
 class Reactive:
 
-   constructor{@renderfn} =
+   constructor{@renderfn-scratch, @renderfn-patch} =
       @argmap = {=}
 
    render-with-patch{the-patch, new-patch, args, dir} =
@@ -84,6 +91,18 @@ class Reactive:
       @argmap[key] = cached
       if the-patch:
          if not cached.transform-patch{the-patch, new-patch, dir}:
+            ;; if @renderfn-patch:
+
+            ;;    ???
+            ;;    deps = {=}
+            ;;    if @renderfn-patch.call{@, pargs, the-patch, new-patch, deps}:
+            ;;       pass
+            ;;    else:
+            ;;       return cached.value
+            ;;    ???
+
+            ;;    eeee
+
             delete @argmap[key]
             return @render-with-patch{the-patch, new-patch, args, dir}
       cached.value
@@ -94,7 +113,7 @@ class Reactive:
       pargs = args each deprox! arg ->
          version or= arg[VERSION]
          read-proxy{arg, deps}
-      res = identify{@renderfn.apply{@, pargs}}
+      res = identify{@renderfn-scratch.apply{@, pargs}}
       cache = CachedResult{res, deps, version, true}
       tuck{res, "::reactive", [@]}
       tuck{res, "::arguments", args}
@@ -120,6 +139,8 @@ class System:
       patch{@basis, the-patch, @bdir}
       new-patch = {=}
       tuck{new-patch, VERSION, @version}
+      ;; print the-patch
+      ;; print @value["::cached"].deps
       @value = @value["::reactive"].render-with-patch{
          the-patch, new-patch, {@basis}, @bdir
       }
@@ -141,3 +162,10 @@ reactive-function{render} =
       r.render-with-patch{null, null, args, null}
    rval.orig = render
    rval
+
+;; reactive-each{render-item} =
+;;    r = Reactive{render}
+;;    rval{*args} =
+;;       r.render-with-patch{null, null, args, null}
+;;    rval.orig = render
+;;    rval

@@ -1,8 +1,8 @@
 
 provide:
    tuck
-   ID, CLOBBERID, FORKID, VERSION, SOURCE
-   next-id, identify
+   ID, CLOBBERID, FORKID, VERSION, SOURCE, DIRECTORY
+   next-id, identify, fork-identify
 
 tuck{obj, name, value, writable = true} =
    Object.define-property{obj, name} with {
@@ -17,6 +17,7 @@ FORKID = Symbol{.forkid}
 VERSION = Symbol{.version}
 SOURCE = Symbol{.source}
 CLOBBERID = Symbol{.clobberid}
+DIRECTORY = Symbol{.directory}
 
 var _id = 0
 
@@ -25,9 +26,20 @@ next-id{} =
    _id
 
 identify{match x} =
+   null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+      x
    when x[ID] ->
       x
    else ->
       tuck{x, ID, next-id{}}
+      x
+
+fork-identify{match x} =
+   null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+      x
+   when x[FORKID] ->
+      x
+   else ->
+      tuck{x, FORKID, next-id{}}
       x
 

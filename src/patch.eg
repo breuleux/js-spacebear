@@ -39,7 +39,6 @@ patch-shallow{match value, p, clobber = false} =
 
 patch{value, p, dir = directory{value}, clobber = false} =
    items{p} each {id, obj-patch} ->
-      ;; obj = dir.get{id}
       dir.get-all{id} each obj ->
          patch-shallow{obj, p}
          ;; Refresh directory

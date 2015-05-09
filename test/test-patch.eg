@@ -24,8 +24,9 @@ require:
 describe "patch":
 
    before-each:
+      @dir = Directory{}
       @data = {=}
-      @clara = fork{clara}
+      @clara = @dir.fork{clara}
       @clarap = write-proxy{@clara, @data}
 
    it "updates mutable structures (shallow)":
@@ -33,7 +34,7 @@ describe "patch":
       @clarap.age = 21
       assert @clara.name == .clara
       assert @clara.age == 20
-      patch{@clara, @data}
+      @dir.patch{@clara, @data}
       assert @clara.name == .clairette
       assert @clara.age == 21
 
@@ -42,35 +43,34 @@ describe "patch":
       @clarap.mother.age = 21
       assert @clara.name == .clara
       assert @clara.mother.age == 51
-      patch{@clara, @data}
+      @dir.patch{@clara, @data}
       assert @clara.name == .clairette
       assert @clara.mother.age == 21
 
    it "updates all instances of an object":
       @data = {=}
-      @donald = fork{donald}
+      @donald = @dir.fork{donald}
       @donaldp = write-proxy{@donald, @data}
       @donaldp.mother.age = 21
-      patch{@donald, @data}
+      @dir.patch{@donald, @data}
       ;; donald's mother is also his father
       assert @donald.mother.age == 21
       assert @donald.father.age == 21
 
    it "works multiple times":
 
-      @donald = fork{donald}
-      @dir = directory{@donald}
+      @donald = @dir.fork{@donald}
 
       @data = {=}
       @donaldp = write-proxy{@donald, @data}
       @donaldp.mother.age = 21
-      @donaldp.father = fork{bob}
-      patch{@donald, @data, @dir}
+      @donaldp.father = @dir.fork{bob}
+      @dir.patch{@donald, @data, @dir}
 
       @data = {=}
       @donaldp = write-proxy{@donald, @data}
       @donaldp.father.age = 99
-      patch{@donald, @data, @dir}
+      @dir.patch{@donald, @data, @dir}
 
       assert @donald.mother.age == 21
       assert @donald.father.age == 99

@@ -77,7 +77,7 @@ class SBArray:
       tuck{rval, FORKID, next-id{}}
       tuck{rval, VERSION, 1}
       dir.enter{rval, false}
-      rval._a = @_a each x -> fork{x, dir}
+      rval._a = @_a each x -> dir.fork{x}
       rval
 
    patch{p} =
