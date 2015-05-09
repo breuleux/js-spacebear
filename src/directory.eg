@@ -1,11 +1,13 @@
 
 require:
    "./util" ->
-      ID, FORKID
+      identify, fork-identify, tuck
+      next-id, ID, FORKID, VERSION, DIRECTORY
    "./proxy" ->
       deprox
    "./iter" ->
       iterate-properties
+
 
 provide:
    Directory, directory
@@ -13,56 +15,313 @@ provide:
 
 class Directory:
 
-   constructor{} =
+   constructor{@options = {=}} =
+      ;; Tie @duplicate to @clobber-patch by default, since they should
+      ;; usually have the same value.
+      {clobber-patch => @clobber-patch = false
+       duplicate => @duplicate = @clobber-patch} = @options
       @dir = {=}
       Object.freeze{@}
 
    get-all{id} =
       match @dir[id]:
          undefined? -> {}
+         {_, v} -> {v}
          objs -> items{objs} each {k, {_, v}} -> v
 
    get{id} =
       @get-all{id}[0]
 
-   enter{match v, add-children = true} =
+
+   enter{match value, add-children = true} =
       null? or undefined? or Number? or String? or Symbol? or Boolean? ->
-         @
-      else ->
-         sub = @dir[v[ID]] or= {=}
-         fid = v[FORKID] or -1
+         value
+      v when not @duplicate ->
+         {@dir[v[ID]], return} =
+            match @dir[v[ID]]:
+               undefined? ->
+                  tuck{v, DIRECTORY, @}
+                  if add-children:
+                     iterate-properties{v} each {k, v2, replace} ->
+                        @enter{v2, true}
+                  {{1, v}, v}
+               {count, v} ->
+                  {{count + 1, v}, v}
+
+      deprox! fork-identify! v ->
+         sub = [@dir[v[ID]] or= {=}]
+         fid = v[FORKID]
          match sub[fid]:
             undefined? ->
-               sub[fid] = {1, deprox{v}}
+               tuck{v, DIRECTORY, @}
+               sub[fid] = {1, v}
                if add-children:
                   iterate-properties{v} each {k, v2, replace} ->
                      @enter{v2, true}
+               v
             {count, v} ->
-               sub[fid] = {count + 1, deprox{v}}
-         @
+               sub[fid] = {count + 1, v}
+               v
 
    exit{match v, remove-children = true} =
       null? or undefined? or Number? or String? or Symbol? or Boolean? ->
          @
-      else ->
-         sub = @dir[v[ID]] or= {=}
-         fid = v[FORKID] or -1
-         match sub[fid]:
+      deprox! v ->
+         {d, k} =
+            if @duplicate:
+               sub = [@dir[v[ID]] or= {=}]
+               {sub, v[FORKID]}
+            else:
+               {@dir, v[ID]}
+         match d[k]:
             undefined? ->
                pass
             {match count, v} ->
                > 1 ->
-                  sub[fid] = {count - 1, deprox{v}}
+                  d[k] = {count - 1, v}
                else ->
-                  delete sub[fid]
+                  delete d[k]
+                  delete v[DIRECTORY]
                   if remove-children:
                      iterate-properties{v} each {k, v2, replace} ->
                         @exit{v2, true}
-         @
 
+   acquire{match v} =
+      null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+         v
+      identify! [{^DIRECTORY => d} or d is undefined] and match is d ->
+         === [@] ->
+            if{@duplicate, @fork{v}, v}
+         undefined? when @duplicate ->
+            @fork{v}
+         undefined? ->
+            @enter{v}
+            iterate-properties{v} each {k, v2, replace} ->
+               match @acquire{v2}:
+                  !== v2 ->
+                     throw E.acquire with
+                        "Child of acquired node belongs to other directory."
+                  else ->
+                     pass
+            v
+         else ->
+            @fork{v}
+
+   acquire-get{v} =
+      match @get{v[ID] or -1}:
+         undefined? -> @acquire{v}
+         x -> x
+
+   fork{match value} =
+      null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+         value
+      when not @duplicate and @get{value[ID] or -1} ->
+         @get{value[ID] or -1}
+      {fork => Function?} ->
+         throw E.not-implemented{}
+         deprox{value}.fork{@}
+      Array? ->
+         array-fork{deprox{value}, @}
+      else ->
+         object-fork{deprox{value}, @}
+
+   clobber{identify! match value, identify! new-value} =
+      null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+         new-value
+      when value[ID] === new-value[ID] ->
+         value
+      {clobber => Function?} ->
+         deprox{value}.clobber{new-value, @}
+      Array? ->
+         array-clobber{deprox{value}, new-value, @}
+      else ->
+         object-clobber{deprox{value}, new-value, @}
+
+   replace{old-value, new-value} =
+      if @clobber-patch:
+         @clobber{old-value, new-value}
+      else:
+         v = @acquire{new-value}
+         @exit{old-value}
+         v
+
+   patch{value, p} =
+      items{p} each {id, obj-patch} ->
+         @get-all{id} each obj ->
+            patch-shallow{obj, p, @}
+
+            ;; exits = iterate-properties{obj} each {k, v, replace} -> v
+            ;; ;; Refresh directory
+            ;; iterate-properties{obj} each {k, v, replace} ->
+            ;;    @enter{v}
+            ;; exits each v ->
+            ;;    ;; Won't affect values that remain because their ref counts are >= 2
+            ;;    @exit{v}
+
+
+
+
+;;;;;;;;;;;;;;;;;;
+;; FORK HELPERS ;;
+;;;;;;;;;;;;;;;;;;
+
+array-fork{identify! arr, dir} =
+   rval = {}
+   tuck{rval, ID, arr[ID]}
+   fork-identify{rval}
+   ;; tuck{rval, FORKID, next-id{}}
+   tuck{rval, VERSION, 1}
+   dir.enter{rval, false}
+   arr each x ->
+      rval.push{dir.acquire{x}}
+   rval
+
+object-fork{match value, dir} =
+
+   Object.is-frozen? ->
+      throw E.spacebear.proxy with
+         'Cannot fork frozen objects.'
+
+   identify! obj ->
+      rval = Object.create{Object.get-prototype-of{obj}}
+      tuck{rval, ID, obj[ID]}
+      fork-identify{rval}
+      ;; tuck{rval, FORKID, next-id{}}
+      tuck{rval, VERSION, 1}
+      dir.enter{rval, false}
+      items{obj} each {key, value} ->
+         rval[key] = dir.acquire{value}
+      rval
 
 directory{v, dir = Directory{}} =
-   dir.enter{v}
+   dir.acquire{v}
 
 
+
+;;;;;;;;;;;;;;;;;;;
+;; PATCH HELPERS ;;
+;;;;;;;;;;;;;;;;;;;
+
+patch-shallow{match value, p, dir} =
+
+   null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+      pass
+
+   Object.is-frozen? ->
+      throw E.spacebear.patch with
+         'Cannot patch frozen objects.'
+
+   {patch => Function?} ->
+      deprox{value}.patch{p, dir}
+
+   Array? arr ->
+      array-patch{arr, p, dir}
+
+   deprox! obj ->
+      object-patch{obj, p, dir}
+      undefined
+
+
+object-patch{obj, p, dir, wrapper = obj} =
+
+   identify{wrapper}
+   if wrapper[VERSION] === p[VERSION]:
+      return obj
+   tuck{wrapper, VERSION, p[VERSION]}
+
+   match p[wrapper[ID]]:
+      undefined? -> pass
+      items! [each {field, match}] ->
+         #update{value} ->
+            ;; novo =
+            ;;    if dir.clobber-patch:
+            ;;       clobber-patch{obj[field], value, x -> dir.fork{x}}
+            ;;    else:
+            ;;       dir.fork{value}
+            ;;       dir.exit{obj[field]}
+
+            ;; dir.exit{obj[field]}
+            ;; obj[field] = value
+            ;; dir.enter{value}
+
+            obj[field] = dir.replace{obj[field], value}
+
+   obj
+
+array-patch{arr, p, dir, wrapper = arr} =
+   ;; TODO
+   throw E.later{}
+
+   identify{wrapper}
+   if wrapper[VERSION] === p[VERSION]:
+      return arr
+   tuck{wrapper, VERSION, p[VERSION]}
+
+   splices = p??[wrapper[ID]]??["@splice"]
+   if not splices:
+      return
+   enumerate{splices}.reverse{} each {i, match} ->
+      {n, repl} ->
+         previous = arr.splice{i, n, *repl}
+         zip
+      else ->
+         pass
+   undefined
+
+
+
+;;;;;;;;;;;;;;;;;;;;;
+;; CLOBBER HELPERS ;;
+;;;;;;;;;;;;;;;;;;;;;
+
+array-clobber{arr, new-arr, wrap} =
+   ;; TODO
+   throw E.later{}
+
+   ;; if not Array? new-arr:
+   ;;    return wrap{new-arr}
+
+   ;; idpos = {=}
+   ;; enumerate{arr} each {i, match x} ->
+   ;;    when x[ID] ->
+   ;;       idpos[x[ID]] = {i, x}
+
+   ;; enumerate{new-arr} each {match i, v} ->
+   ;;    > arr.length ->
+   ;;       arr.push{wrap{v}}
+   ;;    else ->
+   ;;       v0 = arr[i]
+   ;;       vid = v[ID]
+   ;;       if vid and idpos[vid]:
+   ;;          {j, x} = idpos[vid]
+   ;;          delete idpos[vid]
+   ;;          if j > i: arr[j] = null
+   ;;          arr[i] = clobber{x, v, wrap}
+   ;;       else:
+   ;;          arr[i] = clobber{v0, v, wrap}
+
+   ;; delta = arr.length - new-arr.length
+   ;; if delta > 0:
+   ;;    arr.splice{new-arr.length, delta}
+
+   ;; arr
+
+
+object-clobber{obj, new-obj, dir} =
+   if Object.get-prototype-of{obj} !== Object.get-prototype-of{new-obj}:
+      return dir.acquire{new-obj}
+   dir.exit{obj}
+   items{obj} each
+      {k, v} when not Object.has-own-property.call{new-obj, k} ->
+         delete obj[k]
+   items{new-obj} each {k, match v} ->
+      do: v0 = obj[k]
+      === v0 or when v0 and v0[ID] and v and v[ID] == v0[ID] ->
+         pass
+      else ->
+         obj[k] = dir.clobber{obj[k], v}
+   {ID, VERSION} each field ->
+      tuck{obj, field, new-obj[field]}
+   dir.enter{obj}
+   obj
 

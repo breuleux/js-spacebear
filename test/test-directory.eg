@@ -15,50 +15,319 @@ require:
       fork, directory, Directory
       patch, changed-relevantly, intersect
       clobber
-      ID, FORKID
-   "./people" ->
-      alice, bob, clara, donald
-      aid, bid, cid, did
+      ID, FORKID, DIRECTORY, VERSION
+   ;; "./people" ->
+   ;;    alice, bob, clara, donald
+   ;;    aid, bid, cid, did
+
+
+static-dir = Directory{}
+
+alice = static-dir.acquire with
+   {name = .alice, age = 51}
+bob = static-dir.acquire with
+   {name = .bob, age = 56}
+clara = static-dir.acquire with
+   {name = .clara, age = 20, mother = alice, father = bob}
+donald = static-dir.acquire with
+   {name = .donald, age = 10, mother = alice, father = alice}
+ernest = static-dir.acquire with
+   {name = .ernest, age = 100}
+
+aid = alice[ID]
+bid = bob[ID]
+cid = clara[ID]
+did = donald[ID]
+eid = ernest[ID]
 
 
 describe "directory":
 
    before-each:
       @dir = Directory{}
+      @dir2 = Directory{duplicate = true, clobber-patch = true}
 
-   it "can track multiple copies of the 'same' object":
-      a = {ID => 1, FORKID => 1_000_000, x = 1, y = 2}
-      @dir.enter{a}
-      assert @dir.get-all{1} == {a}
+   describe "option: duplicate":
 
-      b = {ID => 1, FORKID => 1_000_001, x = 1, y = 2}
-      @dir.enter{b}
-      assert @dir.get-all{1} == {a, b}
+      describe "= false":
+         it "acquires the same object only once":
+            a = {ID => 1, x = 1, y = 2}
+            @dir.acquire{a}
+            assert @dir.get-all{1} == {a}
+            b = @dir.acquire{a}
+            assert a === b
+            assert @dir.get-all{1} == {a}
 
-      c = fork{a, @dir, true}
-      @dir.enter{c}
-      assert @dir.get-all{1} == {a, b, c}
+         it "multiple copies of the 'same' object are only acquired once":
+            a = {ID => 1, x = 1, y = 2}
+            @dir.acquire{a}
+            assert @dir.get-all{1} == {a}
+            b = {ID => 1, x = 1, y = 2}
+            @dir.acquire{b}
+            assert @dir.get-all{1} == {a}
 
-   it "reference counting":
-      a = {ID => 1, FORKID => 1_000_000, x = 1}
-      b = {ID => 2, FORKID => 1_000_001, x = 2}
-      c = {ID => 3, FORKID => 1_000_002, x = 3}
-      d = {ID => 4, FORKID => 1_000_003, x = a, y = b}
-      e = {ID => 5, FORKID => 1_000_004, x = b, y = c}
+         it "reference counting":
+            a = {ID => 1, x = 1}
+            b = {ID => 2, x = 2}
+            c = {ID => 3, x = 3}
+            d = {ID => 4, x = a, y = b}
+            e = {ID => 5, x = b, y = c}
+            f = {ID => 6, d = d, e = e}
 
-      {d, e} each entry ->
-         @dir.enter{entry}
-      {a, b, c, d, e} each entry ->
-         assert @dir.get-all{entry[ID]} == {entry}
+            @dir.acquire{f}
+            ;; {d, e} each entry ->
+            ;;    @dir.acquire{entry}
+            {a, b, c, d, e} each entry ->
+               assert @dir.get-all{entry[ID]} == {entry}
 
-      @dir.exit{d}
-      {a, d} each entry ->
-         assert @dir.get-all{entry[ID]} == {}
-      {b, c, e} each entry ->
-         assert @dir.get-all{entry[ID]} == {entry}
+            @dir.exit{d}
+            {a, d} each entry ->
+               assert @dir.get-all{entry[ID]} == {}
+            {b, c, e} each entry ->
+               assert @dir.get-all{entry[ID]} == {entry}
 
-      @dir.exit{e}
-      {a, b, c, d, e} each entry ->
-         assert @dir.get-all{entry[ID]} == {}
+            @dir.exit{e}
+            {a, b, c, d, e} each entry ->
+               assert @dir.get-all{entry[ID]} == {}
 
 
+      describe "= true":
+         it "acquires the same object more than once":
+            a = {ID => 1, x = 1, y = 2}
+            @dir2.acquire{a}
+            assert @dir2.get-all{1} == {a}
+            b = @dir2.acquire{a}
+            assert a !== b
+            assert @dir2.get-all{1} == {a, b}
+
+         it "tracks multiple copies of the 'same' object":
+            a = {ID => 1, x = 1, y = 2}
+            @dir2.acquire{a}
+            assert @dir2.get-all{1} == {a}
+
+            b = {ID => 1, x = 1, y = 2}
+            @dir2.acquire{b}
+
+            assert @dir2.get-all{1} == {a, b}
+
+         it "reference counting":
+            a = {ID => 1, x = 1}
+            b = {ID => 2, x = 2}
+            c = {ID => 3, x = 3}
+            d = {ID => 4, x = a, y = b}
+            e = {ID => 5, x = b, y = c}
+            f = {ID => 6, d = d, e = e}
+
+            @dir2.acquire{f}
+            {{a, 1}, {b, 2}, {c, 1}, {d, 1}, {e, 1}} each {entry, nclones} ->
+               assert @dir2.get-all{entry[ID]} == [1..nclones each x -> entry]
+
+            d2 = @dir2.get{f[ID]}.d
+            @dir2.exit{d2}
+            {{a, 0}, {b, 1}, {c, 1}, {d, 0}, {e, 1}} each {entry, nclones} ->
+               assert @dir2.get-all{entry[ID]} == [1..nclones each x -> entry]
+
+            e2 = @dir2.get{f[ID]}.e
+            @dir2.exit{e2}
+            {{a, 0}, {b, 0}, {c, 0}, {d, 0}, {e, 0}} each {entry, nclones} ->
+               assert @dir2.get-all{entry[ID]} == [1..nclones each x -> entry]
+
+
+   describe "acquire":
+
+      it "assimilates unaffiliated objects":
+         obj = {a = 1, b = 2}
+         obj2 = @dir.acquire{obj}
+         assert obj === obj2
+         assert obj[DIRECTORY] === @dir
+
+      it "forks assimilated objects":
+         obj = {a = 1, b = 2}
+         obj2 = @dir.acquire{obj}
+         dir2 = Directory{}
+         obj3 = dir2.acquire{obj}
+         assert obj === obj2
+         assert obj !== obj3
+         assert obj[DIRECTORY] === @dir
+         assert obj3[DIRECTORY] === dir2
+
+   describe "fork":
+      before-each:
+         @clara = @dir.fork{clara}
+         @donald = @dir.fork{donald}
+
+      it "preserves information":
+         assert @clara.name == .clara
+         assert @clara.age == 20
+         assert @clara.mother.name == .alice
+         assert @clara.father.name == .bob
+
+      it "is deep":
+         assert @clara !== clara
+         assert @clara.mother !== clara.mother
+         assert @clara.father !== clara.father
+
+      it "maps same ID to same object if duplicate = false (default)":
+         assert @donald.mother === @donald.father
+
+      it "creates copies for same ID if duplicate = true":
+         @dir = Directory{duplicate = true}
+         @clara = @dir.fork{clara}
+         @donald = @dir.fork{donald}
+         assert @donald.mother !== @donald.father
+
+   describe "clobber":
+
+      it "overwrites data":
+         @clara = @dir2.acquire{clara}
+         {=> mother, => father} = @clara
+         assert father.name === .bob
+         assert @dir2.get-all{aid} == {alice}
+         assert @dir2.get-all{bid} == {bob}
+         assert @dir2.get-all{eid} == {}
+
+         @ernest = @dir2.clobber{father, ernest}
+         assert @ernest === father
+         assert father.name === .ernest
+         assert @dir2.get-all{aid} == {alice}
+         assert @dir2.get-all{bid} == {}
+         assert @dir2.get-all{eid} == {ernest}
+
+      it "properly clobber data with same ids":
+         @donald = @dir2.acquire{donald}
+         {=> mother, => father} = @donald
+         assert mother !== father
+         assert mother.name === .alice
+         assert father.name === .alice
+         assert @dir2.get-all{aid} == {alice, alice}
+         assert @dir2.get-all{eid} == {}
+
+         @ernest = @dir2.clobber{father, ernest}
+         assert @ernest === father
+         assert mother.name === .alice
+         assert father.name === .ernest
+         assert @dir2.get-all{aid} == {alice}
+         assert @dir2.get-all{eid} == {ernest}
+
+
+   describe "replace":
+
+      it "do not clobber when duplicate = false":
+         @clara = @dir.acquire{clara}
+         {=> mother, => father} = @clara
+         assert father.name === .bob
+         assert @dir.get-all{aid} == {alice}
+         assert @dir.get-all{bid} == {bob}
+         assert @dir.get-all{eid} == {}
+
+         @ernest = @dir.replace{father, ernest}
+         assert @ernest !== father
+         assert father.name === .bob
+         assert @dir.get-all{aid} == {alice}
+         assert @dir.get-all{bid} == {}
+         assert @dir.get-all{eid} == {ernest}
+
+      it "clobber when duplicate = true":
+         @clara = @dir2.acquire{clara}
+         {=> mother, => father} = @clara
+         assert father.name === .bob
+         assert @dir2.get-all{aid} == {alice}
+         assert @dir2.get-all{bid} == {bob}
+         assert @dir2.get-all{eid} == {}
+
+         @ernest = @dir2.replace{father, ernest}
+         assert @ernest === father
+         assert father.name === .ernest
+         assert @dir2.get-all{aid} == {alice}
+         assert @dir2.get-all{bid} == {}
+         assert @dir2.get-all{eid} == {ernest}
+
+   describe "patch, duplicate = false":
+
+      before-each:
+         @data = {=}
+         @clara = @dir.acquire{clara}
+         @clarap = write-proxy{@clara, @data}
+         @donald = @dir.acquire{donald}
+         @donaldp = write-proxy{@donald, @data}
+
+      it "updates mutable structures (shallow)":
+         @clarap.name = .clairette
+         @clarap.age = 21
+         assert @clara.name == .clara
+         assert @clara.age == 20
+         @dir.patch{@clara, @data}
+         assert @clara.name == .clairette
+         assert @clara.age == 21
+
+      it "updates mutable structures (deep)":
+         @clarap.name = .clairette
+         @clarap.mother.age = 21
+         assert @clara.name == .clara
+         assert @clara.mother.age == 51
+         @dir.patch{@clara, @data}
+         assert @clara.name == .clairette
+         assert @clara.mother.age == 21
+
+      it "update with objects":
+         @clarap.name = .clairette
+         @clarap.father = ernest
+         assert @clara.father.name == .bob
+         @dir.patch{@clara, @data}
+         assert @clara.father.name == .ernest
+         assert ernest !== @clara.father
+
+      it "multiple patching":
+         {=> mother, => father} = @donald
+
+         ;; First round
+         @donaldp.father = ernest
+         @dir.patch{@donald, @data}
+
+         ;; Second round
+         @data = {VERSION => 3}
+         @donaldp = write-proxy{@donald, @data}
+         @donaldp.father.age = 900
+         @dir.patch{@donald, @data}
+
+         assert @donald.mother == alice
+         assert @donald.father == {name = .ernest, age = 900}
+
+
+   describe "patch, duplicate = true":
+
+      before-each:
+         @data = {VERSION => 2}
+         @clara = @dir2.acquire{clara}
+         @clarap = write-proxy{@clara, @data}
+         @donald = @dir2.acquire{donald}
+         @donaldp = write-proxy{@donald, @data}
+
+      it "updates all instances of an object":
+         {=> mother, => father} = @donald
+         assert mother == father  ;; same object contents
+         assert mother !== father ;; but not same object reference
+
+         @donaldp.mother.age = 21
+         assert mother.age == 51
+         assert father.age == 51
+         @dir2.patch{@donald, @data}
+         ;; donald's mother is also his father
+         assert mother.age == 21
+         assert father.age == 21
+
+      it "multiple patching":
+         {=> mother, => father} = @donald
+
+         ;; First round
+         @donaldp.father = ernest
+         @dir2.patch{@donald, @data}
+
+         ;; Second round
+         @data = {VERSION => 3}
+         @donaldp = write-proxy{@donald, @data}
+         @donaldp.father.age = 900
+         @dir2.patch{@donald, @data}
+
+         assert @donald.mother == alice
+         assert @donald.father == {name = .ernest, age = 900}
