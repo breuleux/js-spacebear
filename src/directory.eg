@@ -145,19 +145,15 @@ class Directory:
          @exit{old-value}
          v
 
-   patch{value, p} =
+   patch{p} =
+      ;; TODO: investigate what happens when a patch introduces an
+      ;; item with, say, ID == x, which needs to be patched, but the
+      ;; patch for ID == x was applied before. This should be ok if
+      ;; the item is already in the directory, otherwise it may fail.
+
       items{p} each {id, obj-patch} ->
          @get-all{id} each obj ->
             patch-shallow{obj, p, @}
-
-            ;; exits = iterate-properties{obj} each {k, v, replace} -> v
-            ;; ;; Refresh directory
-            ;; iterate-properties{obj} each {k, v, replace} ->
-            ;;    @enter{v}
-            ;; exits each v ->
-            ;;    ;; Won't affect values that remain because their ref counts are >= 2
-            ;;    @exit{v}
-
 
 
 
@@ -169,29 +165,19 @@ array-fork{identify! arr, dir} =
    rval = {}
    tuck{rval, ID, arr[ID]}
    fork-identify{rval}
-   ;; tuck{rval, FORKID, next-id{}}
-   tuck{rval, VERSION, 1}
    dir.enter{rval, false}
    arr each x ->
       rval.push{dir.acquire{x}}
    rval
 
-object-fork{match value, dir} =
-
-   Object.is-frozen? ->
-      throw E.spacebear.proxy with
-         'Cannot fork frozen objects.'
-
-   identify! obj ->
-      rval = Object.create{Object.get-prototype-of{obj}}
-      tuck{rval, ID, obj[ID]}
-      fork-identify{rval}
-      ;; tuck{rval, FORKID, next-id{}}
-      tuck{rval, VERSION, 1}
-      dir.enter{rval, false}
-      items{obj} each {key, value} ->
-         rval[key] = dir.acquire{value}
-      rval
+object-fork{identify! obj, dir} =
+   rval = Object.create{Object.get-prototype-of{obj}}
+   tuck{rval, ID, obj[ID]}
+   fork-identify{rval}
+   dir.enter{rval, false}
+   items{obj} each {key, value} ->
+      rval[key] = dir.acquire{value}
+   rval
 
 directory{v, dir = Directory{}} =
    dir.acquire{v}
@@ -203,70 +189,41 @@ directory{v, dir = Directory{}} =
 ;;;;;;;;;;;;;;;;;;;
 
 patch-shallow{match value, p, dir} =
-
    null? or undefined? or Number? or String? or Symbol? or Boolean? ->
       pass
-
-   Object.is-frozen? ->
-      throw E.spacebear.patch with
-         'Cannot patch frozen objects.'
-
    {patch => Function?} ->
       deprox{value}.patch{p, dir}
-
    Array? arr ->
       array-patch{arr, p, dir}
-
    deprox! obj ->
       object-patch{obj, p, dir}
       undefined
 
-
 object-patch{obj, p, dir, wrapper = obj} =
-
    identify{wrapper}
-   if wrapper[VERSION] === p[VERSION]:
-      return obj
-   tuck{wrapper, VERSION, p[VERSION]}
-
    match p[wrapper[ID]]:
       undefined? -> pass
       items! [each {field, match}] ->
          #update{value} ->
-            ;; novo =
-            ;;    if dir.clobber-patch:
-            ;;       clobber-patch{obj[field], value, x -> dir.fork{x}}
-            ;;    else:
-            ;;       dir.fork{value}
-            ;;       dir.exit{obj[field]}
-
-            ;; dir.exit{obj[field]}
-            ;; obj[field] = value
-            ;; dir.enter{value}
-
             obj[field] = dir.replace{obj[field], value}
-
    obj
 
 array-patch{arr, p, dir, wrapper = arr} =
    ;; TODO
    throw E.later{}
 
-   identify{wrapper}
-   if wrapper[VERSION] === p[VERSION]:
-      return arr
-   tuck{wrapper, VERSION, p[VERSION]}
+   ;; identify{wrapper}
 
-   splices = p??[wrapper[ID]]??["@splice"]
-   if not splices:
-      return
-   enumerate{splices}.reverse{} each {i, match} ->
-      {n, repl} ->
-         previous = arr.splice{i, n, *repl}
-         zip
-      else ->
-         pass
-   undefined
+   ;; splices = p??[wrapper[ID]]??["@splice"]
+   ;; if not splices:
+   ;;    return
+   ;; enumerate{splices}.reverse{} each {i, match} ->
+   ;;    {n, repl} ->
+   ;;       previous = arr.splice{i, n, *repl}
+   ;;       zip
+   ;;    else ->
+   ;;       pass
+   ;; undefined
 
 
 
@@ -320,7 +277,7 @@ object-clobber{obj, new-obj, dir} =
          pass
       else ->
          obj[k] = dir.clobber{obj[k], v}
-   {ID, VERSION} each field ->
+   {ID} each field ->
       tuck{obj, field, new-obj[field]}
    dir.enter{obj}
    obj

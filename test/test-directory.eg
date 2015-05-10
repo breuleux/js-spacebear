@@ -15,7 +15,7 @@ require:
       fork, directory, Directory
       patch, changed-relevantly, intersect
       clobber
-      ID, FORKID, DIRECTORY, VERSION
+      ID, FORKID, DIRECTORY
    ;; "./people" ->
    ;;    alice, bob, clara, donald
    ;;    aid, bid, cid, did
@@ -256,7 +256,7 @@ describe "directory":
          @clarap.age = 21
          assert @clara.name == .clara
          assert @clara.age == 20
-         @dir.patch{@clara, @data}
+         @dir.patch{@data}
          assert @clara.name == .clairette
          assert @clara.age == 21
 
@@ -265,7 +265,7 @@ describe "directory":
          @clarap.mother.age = 21
          assert @clara.name == .clara
          assert @clara.mother.age == 51
-         @dir.patch{@clara, @data}
+         @dir.patch{@data}
          assert @clara.name == .clairette
          assert @clara.mother.age == 21
 
@@ -273,7 +273,7 @@ describe "directory":
          @clarap.name = .clairette
          @clarap.father = ernest
          assert @clara.father.name == .bob
-         @dir.patch{@clara, @data}
+         @dir.patch{@data}
          assert @clara.father.name == .ernest
          assert ernest !== @clara.father
 
@@ -282,13 +282,13 @@ describe "directory":
 
          ;; First round
          @donaldp.father = ernest
-         @dir.patch{@donald, @data}
+         @dir.patch{@data}
 
          ;; Second round
-         @data = {VERSION => 3}
+         @data = {=}
          @donaldp = write-proxy{@donald, @data}
          @donaldp.father.age = 900
-         @dir.patch{@donald, @data}
+         @dir.patch{@data}
 
          assert @donald.mother == alice
          assert @donald.father == {name = .ernest, age = 900}
@@ -297,7 +297,7 @@ describe "directory":
    describe "patch, duplicate = true":
 
       before-each:
-         @data = {VERSION => 2}
+         @data = {=}
          @clara = @dir2.acquire{clara}
          @clarap = write-proxy{@clara, @data}
          @donald = @dir2.acquire{donald}
@@ -311,23 +311,31 @@ describe "directory":
          @donaldp.mother.age = 21
          assert mother.age == 51
          assert father.age == 51
-         @dir2.patch{@donald, @data}
+         @dir2.patch{@data}
          ;; donald's mother is also his father
          assert mother.age == 21
          assert father.age == 21
+
+      it "adding an instance while modifying it":
+         {=> mother, => father} = @clara
+         @clarap.mother = @clarap.father
+         @clarap.father.age = 66
+         @dir2.patch{@data}
+         assert @clara.mother == @clara.father
+         assert @clara.mother !== @clara.father
 
       it "multiple patching":
          {=> mother, => father} = @donald
 
          ;; First round
          @donaldp.father = ernest
-         @dir2.patch{@donald, @data}
+         @dir2.patch{@data}
 
          ;; Second round
-         @data = {VERSION => 3}
+         @data = {=}
          @donaldp = write-proxy{@donald, @data}
          @donaldp.father.age = 900
-         @dir2.patch{@donald, @data}
+         @dir2.patch{@data}
 
          assert @donald.mother == alice
          assert @donald.father == {name = .ernest, age = 900}
