@@ -3,6 +3,7 @@ require:
    "./util" ->
       identify, fork-identify, tuck
       next-id, ID, FORKID, VERSION, DIRECTORY, CACHE
+      longest-run
    "./proxy" ->
       deprox
    "./iter" ->
@@ -258,36 +259,56 @@ object-clobber{obj, new-obj, dir} =
    obj
 
 
-array-clobber{arr, new-arr, wrap} =
+array-clobber{arr, new-arr, dir} =
+
    if not Array? new-arr:
       return dir.acquire{new-arr}
    dir.exit{arr}
 
+   ;; 1. For each element of the new array, find the index of the
+   ;; corresponding element in the old array.
 
-   ;; TODO
-   throw E.later{}
+   ;; 2. Find the longest filtering of the array of indices such
+   ;; that the indices are in order.
 
-   ;; idpos = {=}
-   ;; enumerate{arr} each {i, match x} ->
-   ;;    when x[ID] ->
-   ;;       idpos[x[ID]] = {i, x}
+   ;; 3. Splice the data around these fixed points, which should
+   ;; amount to the minimal splicing that transforms the array
 
-   ;; enumerate{new-arr} each {match i, v} ->
-   ;;    > arr.length ->
-   ;;       arr.push{wrap{v}}
-   ;;    else ->
-   ;;       v0 = arr[i]
-   ;;       vid = v[ID]
-   ;;       if vid and idpos[vid]:
-   ;;          {j, x} = idpos[vid]
-   ;;          delete idpos[vid]
-   ;;          if j > i: arr[j] = null
-   ;;          arr[i] = clobber{x, v, wrap}
-   ;;       else:
-   ;;          arr[i] = clobber{v0, v, wrap}
+   idpos = {=}
+   enumerate{arr} each {i, match x} ->
+      {^ID => Number? id} -> idpos[id] = {i, x}
+      else -> continue
 
-   ;; delta = arr.length - new-arr.length
-   ;; if delta > 0:
-   ;;    arr.splice{new-arr.length, delta}
+   indices = enumerate{new-arr} each {i, match x} ->
+      {^ID => Number? id} when idpos[id] -> {i, idpos[id][0]}
+      else -> continue
 
-   ;; arr
+   run = longest-run{indices, cmp, {-1, -1}} where
+      cmp{{_, p1}, {_, p2}} = p1 < p2
+
+   orig = arr each x -> x
+
+   if dir.duplicate:
+      run each {new-i, old-i} ->
+         ;; These will be automatically preserved
+         delete idpos[orig[old-i][ID]]
+
+   run.push with {new-arr.length, arr.length}
+
+   var old-current = 0
+   var new-current = 0
+   run each {new-i, old-i} ->
+      inserts = new-arr.slice{new-current, new-i} each
+         entry and {_, orig} is idpos[entry[ID] or -1] when dir.duplicate ->
+            ;; We can recover this entry; however dir.duplicate prevents
+            ;; us from having the same reference more than once in the
+            ;; tree, so we remove it from idpos so we can't reuse it.
+            delete idpos[entry[ID]]
+            orig
+         entry ->
+            dir.acquire{entry}
+      arr.splice{new-current, old-i - old-current, *inserts}
+      old-current = old-i + 1
+      new-current = new-i + 1
+
+   arr

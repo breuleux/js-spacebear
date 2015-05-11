@@ -20,6 +20,10 @@ require:
       aid, bid, cid, did, eid, fid, gid, hid
 
 
+is-clone{a, b} =
+   a !== b and a == b
+
+
 describe "directory":
 
    before-each:
@@ -350,3 +354,62 @@ describe "directory":
 
          assert @clara.mother == {name = .alice, age = 900}
          assert @clara.father == {name = .alice, age = 900}
+
+
+   describe "array":
+
+      describe "clobber":
+
+         before-each:
+
+            @clobber{old-arr, new-arr, test-preserve = true} =
+               arr = @dir2.acquire{old-arr}
+               arr-clone = arr each x -> x
+               assert is-clone{arr, old-arr}
+               arr2 = @dir2.clobber{arr, new-arr}
+               assert arr === arr2
+               assert is-clone{arr2, new-arr}
+               if test-preserve:
+                  @preserve-same-id{arr-clone, arr2}
+               {arr-clone, arr2}
+
+            @preserve-same-id{arr1, arr2} =
+               id1 = {=}
+               arr1 each
+                  x and {^ID => Number? id} -> id1[id] = x
+                  else -> continue
+               arr2 each
+                  x and {^ID => Number? id} when id1[id] ->
+                     assert id1[id] === x
+
+         it "scalar":
+            @clobber{{1, 2, 3, 4}, {1, 2, 3, 4, 5}}
+
+         it "push":
+            @clobber{{alice, bob, clara}, {alice, bob, clara, donald}}
+
+         it "reorder":
+            @clobber{{alice, bob, clara}, {donald, clara, alice, bob}}
+
+         it "with clones before":
+            {{a1, a2, b1}, {a3, b2}} =
+               @clobber{{alice, alice, bob}, {alice, bob}, false}
+            assert a1 === a3 or a2 === a3
+            assert b1 === b2
+
+         it "with clones after":
+            {{a1, b1}, {a2, a3, b2}} =
+               @clobber{{alice, bob}, {alice, alice, bob}, false}
+            assert a1 === a2 or a1 === a3
+            assert a2 !== a3
+            assert b1 === b2
+
+         it "misc 1":
+            @clobber{{alice, bob, clara, donald, emily}
+                     {bob, emily, clara, francis, gerard}}
+
+         it "misc 2":
+            @clobber{{alice, bob, clara, clara, donald, emily}
+                     {bob, emily, clara, francis, clara, gerard}, false}
+
+
