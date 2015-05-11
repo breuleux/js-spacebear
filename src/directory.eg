@@ -2,7 +2,7 @@
 require:
    "./util" ->
       identify, fork-identify, tuck
-      next-id, ID, FORKID, VERSION, DIRECTORY
+      next-id, ID, FORKID, VERSION, DIRECTORY, CACHE
    "./proxy" ->
       deprox
    "./iter" ->
@@ -21,7 +21,7 @@ class Directory:
       {clobber-patch => @clobber-patch = false
        duplicate => @duplicate = @clobber-patch} = @options
       @dir = {=}
-      Object.freeze{@}
+      @version = 1
 
    get-all{id} =
       match @dir[id]:
@@ -150,7 +150,7 @@ class Directory:
       ;; item with, say, ID == x, which needs to be patched, but the
       ;; patch for ID == x was applied before. This should be ok if
       ;; the item is already in the directory, otherwise it may fail.
-
+      @version += 1
       items{p} each {id, obj-patch} ->
          @get-all{id} each obj ->
             patch-shallow{obj, p, @}
@@ -163,7 +163,8 @@ class Directory:
 
 array-fork{identify! arr, dir} =
    rval = {}
-   tuck{rval, ID, arr[ID]}
+   {ID, CACHE} each field ->
+      tuck{rval, field, arr[field]}
    fork-identify{rval}
    dir.enter{rval, false}
    arr each x ->
@@ -172,7 +173,8 @@ array-fork{identify! arr, dir} =
 
 object-fork{identify! obj, dir} =
    rval = Object.create{Object.get-prototype-of{obj}}
-   tuck{rval, ID, obj[ID]}
+   {ID, CACHE} each field ->
+      tuck{rval, field, obj[field]}
    fork-identify{rval}
    dir.enter{rval, false}
    items{obj} each {key, value} ->

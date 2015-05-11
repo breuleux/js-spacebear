@@ -1,7 +1,7 @@
 
 provide:
    tuck
-   ID, CLOBBERID, FORKID, VERSION, SOURCE, DIRECTORY
+   ID, CLOBBERID, FORKID, VERSION, SOURCE, DIRECTORY, CACHE
    next-id, identify, fork-identify
 
 tuck{obj, name, value, writable = true} =
@@ -18,6 +18,7 @@ VERSION = Symbol{.version}
 SOURCE = Symbol{.source}
 CLOBBERID = Symbol{.clobberid}
 DIRECTORY = Symbol{.directory}
+CACHE = Symbol{.cache}
 
 var _id = 0
 
