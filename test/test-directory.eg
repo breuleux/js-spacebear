@@ -272,6 +272,22 @@ describe "directory":
          assert @donald.mother == {name = .emily, age = 900}
          assert @donald.father == alice
 
+      it "multiple patching (2)":
+         {=> mother, => father} = @clara
+
+         ;; First round
+         @clarap.mother.age = 900
+         @dir.patch{@data}
+
+         ;; Second round
+         @data = {=}
+         @clarap = write-proxy{@clara, @data}
+         @clarap.father = alice
+         @dir.patch{@data}
+
+         assert @clara.mother == {name = .alice, age = 900}
+         assert @clara.father == {name = .alice, age = 900}
+
 
    describe "patch, duplicate = true":
 
@@ -318,3 +334,19 @@ describe "directory":
 
          assert @donald.mother == {name = .emily, age = 900}
          assert @donald.father == alice
+
+      it "multiple patching (2)":
+         {=> mother, => father} = @clara
+
+         ;; First round
+         @clarap.mother.age = 900
+         @dir2.patch{@data}
+
+         ;; Second round
+         @data = {=}
+         @clarap = write-proxy{@clara, @data}
+         @clarap.father = alice
+         @dir2.patch{@data}
+
+         assert @clara.mother == {name = .alice, age = 900}
+         assert @clara.father == {name = .alice, age = 900}

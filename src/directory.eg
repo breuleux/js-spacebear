@@ -32,6 +32,9 @@ class Directory:
    get{id} =
       @get-all{id}[0]
 
+   get-canon{v} =
+      v and v[ID] and @get{v[ID]} or v
+
 
    enter{match value, add-children = true} =
       null? or undefined? or Number? or String? or Symbol? or Boolean? ->
@@ -91,9 +94,9 @@ class Directory:
          v
       identify! [{^DIRECTORY => d} or d is undefined] and match is d ->
          === [@] ->
-            if{@duplicate, @fork{v}, v}
+            if{@duplicate, @fork{@get-canon{v}}, v}
          undefined? when @duplicate ->
-            @fork{v}
+            @fork{@get-canon{v}}
          undefined? ->
             @enter{v}
             iterate-properties{v} each {k, v2, replace} ->
@@ -105,7 +108,7 @@ class Directory:
                      pass
             v
          else ->
-            @fork{v}
+            @fork{@get-canon{v}}
 
    acquire-get{v} =
       match @get{v[ID] or -1}:
@@ -139,7 +142,7 @@ class Directory:
 
    replace{old-value, new-value} =
       if @clobber-patch:
-         @clobber{old-value, new-value}
+         @clobber{old-value, @get-canon{new-value}}
       else:
          v = @acquire{new-value}
          @exit{old-value}
@@ -211,21 +214,24 @@ object-patch{obj, p, dir, wrapper = obj} =
    obj
 
 array-patch{arr, p, dir, wrapper = arr} =
-   ;; TODO
-   throw E.later{}
-
-   ;; identify{wrapper}
-
-   ;; splices = p??[wrapper[ID]]??["@splice"]
-   ;; if not splices:
-   ;;    return
-   ;; enumerate{splices}.reverse{} each {i, match} ->
-   ;;    {n, repl} ->
-   ;;       previous = arr.splice{i, n, *repl}
-   ;;       zip
-   ;;    else ->
-   ;;       pass
-   ;; undefined
+   identify{wrapper}
+   splices = p??[wrapper[ID]]??["@splice"]
+   if not splices:
+      return
+   enumerate{splices}.reverse{} each {i, match} ->
+      {n, repl} ->
+         previous = arr.splice{i, n}
+         var acq =
+            zip{repl.slice{0, previous.length}, previous} each {newv, oldv} ->
+               dir.replace{oldv, newv}
+         acq ++= repl.slice{previous.length} each newv ->
+            dir.acquire{newv}
+         previous.slice{repl.length} each oldv ->
+            dir.exit{oldv}
+         arr.splice{i, 0, *acq}
+      else ->
+         pass
+   undefined
 
 
 
@@ -233,12 +239,33 @@ array-patch{arr, p, dir, wrapper = arr} =
 ;; CLOBBER HELPERS ;;
 ;;;;;;;;;;;;;;;;;;;;;
 
+object-clobber{obj, new-obj, dir} =
+   if Object.get-prototype-of{obj} !== Object.get-prototype-of{new-obj}:
+      return dir.acquire{new-obj}
+   dir.exit{obj}
+   items{obj} each
+      {k, v} when not Object.has-own-property.call{new-obj, k} ->
+         delete obj[k]
+   items{new-obj} each {k, match v} ->
+      do: v0 = obj[k]
+      === v0 or when v0 and v0[ID] and v and v[ID] == v0[ID] ->
+         pass
+      else ->
+         obj[k] = dir.clobber{obj[k], v}
+   {ID} each field ->
+      tuck{obj, field, new-obj[field]}
+   dir.enter{obj}
+   obj
+
+
 array-clobber{arr, new-arr, wrap} =
+   if not Array? new-arr:
+      return dir.acquire{new-arr}
+   dir.exit{arr}
+
+
    ;; TODO
    throw E.later{}
-
-   ;; if not Array? new-arr:
-   ;;    return wrap{new-arr}
 
    ;; idpos = {=}
    ;; enumerate{arr} each {i, match x} ->
@@ -264,23 +291,3 @@ array-clobber{arr, new-arr, wrap} =
    ;;    arr.splice{new-arr.length, delta}
 
    ;; arr
-
-
-object-clobber{obj, new-obj, dir} =
-   if Object.get-prototype-of{obj} !== Object.get-prototype-of{new-obj}:
-      return dir.acquire{new-obj}
-   dir.exit{obj}
-   items{obj} each
-      {k, v} when not Object.has-own-property.call{new-obj, k} ->
-         delete obj[k]
-   items{new-obj} each {k, match v} ->
-      do: v0 = obj[k]
-      === v0 or when v0 and v0[ID] and v and v[ID] == v0[ID] ->
-         pass
-      else ->
-         obj[k] = dir.clobber{obj[k], v}
-   {ID} each field ->
-      tuck{obj, field, new-obj[field]}
-   dir.enter{obj}
-   obj
-
