@@ -15,37 +15,9 @@ require:
       Reactive, reactive-function, System
    ;; "../src/array" ->
    ;;    SBArray, A
-
-
-static-dir = Directory{}
-
-alice = static-dir.acquire with
-   {name = .alice, age = 51}
-bob = static-dir.acquire with
-   {name = .bob, age = 56}
-clara = static-dir.acquire with
-   {name = .clara, age = 20, mother = alice, father = bob}
-donald = static-dir.acquire with
-   {name = .donald, age = 10, mother = alice, father = alice}
-ernest = static-dir.acquire with
-   {name = .ernest, age = 100}
-emily = static-dir.acquire with
-   {name = .emily, age = 49}
-francis = static-dir.acquire with
-   {name = .francis, age = 20, mother = emily, father = donald}
-gerard = static-dir.acquire with
-   {name = .gerard, age = 2, mother = clara, father = francis}
-helen = static-dir.acquire with
-   {name = .helen, age = 2913}
-
-aid = alice[ID]
-bid = bob[ID]
-cid = clara[ID]
-did = donald[ID]
-eid = emily[ID]
-fid = francis[ID]
-gid = gerard[ID]
-hid = helen[ID]
+   "./people" ->
+      alice, bob, clara, donald, emily, francis, gerard, helen
+      aid, bid, cid, did, eid, fid, gid, hid
 
 
 count-calls{f} =

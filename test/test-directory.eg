@@ -12,33 +12,12 @@ require:
    "../src/index" ->
       identify
       make-struct, read-proxy, write-proxy
-      fork, directory, Directory
-      patch, changed-relevantly, intersect
-      clobber
+      directory, Directory
+      changed-relevantly, intersect
       ID, FORKID, DIRECTORY
-   ;; "./people" ->
-   ;;    alice, bob, clara, donald
-   ;;    aid, bid, cid, did
-
-
-static-dir = Directory{}
-
-alice = static-dir.acquire with
-   {name = .alice, age = 51}
-bob = static-dir.acquire with
-   {name = .bob, age = 56}
-clara = static-dir.acquire with
-   {name = .clara, age = 20, mother = alice, father = bob}
-donald = static-dir.acquire with
-   {name = .donald, age = 10, mother = alice, father = alice}
-ernest = static-dir.acquire with
-   {name = .ernest, age = 100}
-
-aid = alice[ID]
-bid = bob[ID]
-cid = clara[ID]
-did = donald[ID]
-eid = ernest[ID]
+   "./people" ->
+      alice, bob, clara, donald, emily, francis, gerard, helen
+      aid, bid, cid, did, eid, fid, gid, hid
 
 
 describe "directory":
@@ -186,12 +165,12 @@ describe "directory":
          assert @dir2.get-all{bid} == {bob}
          assert @dir2.get-all{eid} == {}
 
-         @ernest = @dir2.clobber{father, ernest}
-         assert @ernest === father
-         assert father.name === .ernest
-         assert @dir2.get-all{aid} == {alice}
-         assert @dir2.get-all{bid} == {}
-         assert @dir2.get-all{eid} == {ernest}
+         @emily = @dir2.clobber{mother, emily}
+         assert @emily === mother
+         assert mother.name === .emily
+         assert @dir2.get-all{aid} == {}
+         assert @dir2.get-all{bid} == {bob}
+         assert @dir2.get-all{eid} == {emily}
 
       it "properly clobber data with same ids":
          @donald = @dir2.acquire{donald}
@@ -202,12 +181,12 @@ describe "directory":
          assert @dir2.get-all{aid} == {alice, alice}
          assert @dir2.get-all{eid} == {}
 
-         @ernest = @dir2.clobber{father, ernest}
-         assert @ernest === father
-         assert mother.name === .alice
-         assert father.name === .ernest
+         @emily = @dir2.clobber{mother, emily}
+         assert @emily === mother
+         assert mother.name === .emily
+         assert father.name === .alice
          assert @dir2.get-all{aid} == {alice}
-         assert @dir2.get-all{eid} == {ernest}
+         assert @dir2.get-all{eid} == {emily}
 
 
    describe "replace":
@@ -215,32 +194,32 @@ describe "directory":
       it "do not clobber when duplicate = false":
          @clara = @dir.acquire{clara}
          {=> mother, => father} = @clara
-         assert father.name === .bob
+         assert mother.name === .alice
          assert @dir.get-all{aid} == {alice}
          assert @dir.get-all{bid} == {bob}
          assert @dir.get-all{eid} == {}
 
-         @ernest = @dir.replace{father, ernest}
-         assert @ernest !== father
-         assert father.name === .bob
-         assert @dir.get-all{aid} == {alice}
-         assert @dir.get-all{bid} == {}
-         assert @dir.get-all{eid} == {ernest}
+         @emily = @dir.replace{mother, emily}
+         assert @emily !== mother
+         assert mother.name === .alice
+         assert @dir.get-all{aid} == {}
+         assert @dir.get-all{bid} == {bob}
+         assert @dir.get-all{eid} == {emily}
 
       it "clobber when duplicate = true":
          @clara = @dir2.acquire{clara}
          {=> mother, => father} = @clara
-         assert father.name === .bob
+         assert mother.name === .alice
          assert @dir2.get-all{aid} == {alice}
          assert @dir2.get-all{bid} == {bob}
          assert @dir2.get-all{eid} == {}
 
-         @ernest = @dir2.replace{father, ernest}
-         assert @ernest === father
-         assert father.name === .ernest
-         assert @dir2.get-all{aid} == {alice}
-         assert @dir2.get-all{bid} == {}
-         assert @dir2.get-all{eid} == {ernest}
+         @emily = @dir2.replace{mother, emily}
+         assert @emily === mother
+         assert mother.name === .emily
+         assert @dir2.get-all{aid} == {}
+         assert @dir2.get-all{bid} == {bob}
+         assert @dir2.get-all{eid} == {emily}
 
    describe "patch, duplicate = false":
 
@@ -271,27 +250,27 @@ describe "directory":
 
       it "update with objects":
          @clarap.name = .clairette
-         @clarap.father = ernest
-         assert @clara.father.name == .bob
+         @clarap.mother = emily
+         assert @clara.mother.name == .alice
          @dir.patch{@data}
-         assert @clara.father.name == .ernest
-         assert ernest !== @clara.father
+         assert @clara.mother.name == .emily
+         assert emily !== @clara.mother ;; it's a copy
 
       it "multiple patching":
          {=> mother, => father} = @donald
 
          ;; First round
-         @donaldp.father = ernest
+         @donaldp.mother = emily
          @dir.patch{@data}
 
          ;; Second round
          @data = {=}
          @donaldp = write-proxy{@donald, @data}
-         @donaldp.father.age = 900
+         @donaldp.mother.age = 900
          @dir.patch{@data}
 
-         assert @donald.mother == alice
-         assert @donald.father == {name = .ernest, age = 900}
+         assert @donald.mother == {name = .emily, age = 900}
+         assert @donald.father == alice
 
 
    describe "patch, duplicate = true":
@@ -328,14 +307,14 @@ describe "directory":
          {=> mother, => father} = @donald
 
          ;; First round
-         @donaldp.father = ernest
+         @donaldp.mother = emily
          @dir2.patch{@data}
 
          ;; Second round
          @data = {=}
          @donaldp = write-proxy{@donald, @data}
-         @donaldp.father.age = 900
+         @donaldp.mother.age = 900
          @dir2.patch{@data}
 
-         assert @donald.mother == alice
-         assert @donald.father == {name = .ernest, age = 900}
+         assert @donald.mother == {name = .emily, age = 900}
+         assert @donald.father == alice
