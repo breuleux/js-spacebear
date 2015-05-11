@@ -7,27 +7,20 @@ require:
       make-struct, struct
    "./proxy" ->
       read-proxy, write-proxy, deprox
-   "./fork" ->
-      fork
-   "./patch" ->
-      patch
    "./iter" ->
       iterate-properties
    "./directory" ->
       Directory, directory
    "./relevant" ->
       intersect, changed-relevantly
-   "./clobber" ->
-      clobber
 
 provide:
    identify, tuck
    ID, FORKID, VERSION, SOURCE, DIRECTORY
    make-struct, struct
    read-proxy, write-proxy, deprox
-   fork, Directory, directory
-   patch, iterate-properties
+   Directory, directory
+   iterate-properties
    changed-relevantly
    intersect
-   clobber
 
