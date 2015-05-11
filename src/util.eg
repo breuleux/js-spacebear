@@ -3,6 +3,7 @@ provide:
    tuck
    ID, CLOBBERID, FORKID, VERSION, SOURCE, DIRECTORY, CACHE
    next-id, identify, fork-identify
+   longest-run
 
 tuck{obj, name, value, writable = true} =
    Object.define-property{obj, name} with {
@@ -43,4 +44,22 @@ fork-identify{match x} =
    else ->
       tuck{x, FORKID, next-id{}}
       x
+
+
+
+longest-run{match indices, cmp = {x, y} -> x < y, minimum = -1} =
+   {} -> {}
+   {match x, *rest} ->
+      do: baseline = longest-run{rest, cmp, minimum}
+      null? or when not cmp{minimum, x} ->
+         baseline
+      else ->
+         rval = longest-run{rest, cmp, x}
+         if rval.length < baseline.length:
+            baseline
+         else:
+            rval.unshift{x}
+            rval
+
+
 
