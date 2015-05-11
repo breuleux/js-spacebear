@@ -1,7 +1,7 @@
 
 require:
    "./util" ->
-      tuck, identify, next-id, ID, FORKID, VERSION, SOURCE
+      tuck, identify, next-id, ID, FORKID, VERSION, SOURCE, DIRECTORY
 
 provide:
    deprox, proxy, object-proxy, read-proxy, write-proxy
@@ -36,6 +36,9 @@ object-proxy{obj, tracks, patch, var prevent-dirty-reads = true} =
    frz = Object.is-frozen{obj}
    if not frz:
       identify{obj}
+
+   if tracks: tracks[DIRECTORY] or= obj[DIRECTORY]
+   if patch:  patch[DIRECTORY]  or= obj[DIRECTORY]
 
    id = obj[ID]
    obj-tracks = tracks and id and [tracks[id] or= {=}]
