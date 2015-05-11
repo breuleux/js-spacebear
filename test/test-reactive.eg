@@ -10,28 +10,33 @@ require-macros:
 
 require:
    "../src/index" ->
-      make-struct, read-proxy, ID, fork
+      make-struct, read-proxy, Directory, ID
    "../src/reactive" ->
       Reactive, reactive-function, System
-   "../src/array" ->
-      SBArray, A
+   ;; "../src/array" ->
+   ;;    SBArray, A
 
 
-struct Person:
-   name, age, mother, father
-   say-name{} =
-      'My name is {@name}!'
-   get-older{n = 1} =
-      @age += n
+static-dir = Directory{}
 
-alice = Person{name = .alice, age = 51}
-bob = Person{name = .bob, age = 56}
-clara = Person{name = .clara, age = 20, mother = alice, father = bob}
-donald = Person{name = .donald, age = 79}
-emily = Person{name = .emily, age = 49}
-francis = Person{name = .francis, age = 20, mother = emily, father = donald}
-gerard = Person{name = .gerard, age = 2, mother = clara, father = francis}
-helen = Person{name = .helen, age = 2913}
+alice = static-dir.acquire with
+   {name = .alice, age = 51}
+bob = static-dir.acquire with
+   {name = .bob, age = 56}
+clara = static-dir.acquire with
+   {name = .clara, age = 20, mother = alice, father = bob}
+donald = static-dir.acquire with
+   {name = .donald, age = 10, mother = alice, father = alice}
+ernest = static-dir.acquire with
+   {name = .ernest, age = 100}
+emily = static-dir.acquire with
+   {name = .emily, age = 49}
+francis = static-dir.acquire with
+   {name = .francis, age = 20, mother = emily, father = donald}
+gerard = static-dir.acquire with
+   {name = .gerard, age = 2, mother = clara, father = francis}
+helen = static-dir.acquire with
+   {name = .helen, age = 2913}
 
 aid = alice[ID]
 bid = bob[ID]
@@ -41,6 +46,7 @@ eid = emily[ID]
 fid = francis[ID]
 gid = gerard[ID]
 hid = helen[ID]
+
 
 count-calls{f} =
    rval{*args} =
@@ -60,18 +66,18 @@ describe "utilities":
       assert f.count == 2
 
 
-
 describe "Reactive functions":
 
    before-each:
 
       count-calls! reactive-function! @say-name{person} =
+         ;; print person.name
          {greeting = 'Hello, my name is {person.name}!'}
 
-      count-calls! reactive-function! @say-names{people} =
-         rval = SBArray{people each person -> 'Hello, my name is {person.name}!'}
-         rval
-         people each person -> 'Hello, my name is {person.name}!'
+      ;; count-calls! reactive-function! @say-names{people} =
+      ;;    rval = SBArray{people each person -> 'Hello, my name is {person.name}!'}
+      ;;    rval
+      ;;    people each person -> 'Hello, my name is {person.name}!'
 
       count-calls! reactive-function! @say-parent-names{person} =
          {mother = @say-name{person.mother}
@@ -80,16 +86,16 @@ describe "Reactive functions":
 
    it "called through System":
       sys = System{clara, @say-name}
-      assert sys.value == {greeting = 'Hello, my name is clara!'}
+      assert sys.get{} == {greeting = 'Hello, my name is clara!'}
 
    it "can be updated":
 
       sys = System{clara, @say-name}
-      assert sys.value == {greeting = 'Hello, my name is clara!'}
+      assert sys.get{} == {greeting = 'Hello, my name is clara!'}
 
       sys.transact with {clara} ->
          clara.name = "clairette"
-      assert sys.value == {greeting = 'Hello, my name is clairette!'}
+      assert sys.get{} == {greeting = 'Hello, my name is clairette!'}
 
    it "is parsimonious":
 
@@ -120,10 +126,12 @@ describe "Reactive functions":
          clara.name = "bob"
       assert @say-name.orig.count == 3
 
+      assert sys.get{} == {greeting = 'Hello, my name is bob!'}
+
    it "composes":
       sys = System{clara, @say-parent-names}
 
-      assert sys.value == {
+      assert sys.get{} == {
          mother = {greeting = 'Hello, my name is alice!'}
          father = {greeting = 'Hello, my name is bob!'}
       }
@@ -135,10 +143,11 @@ describe "Reactive functions":
       sys.transact with {clara} ->
          clara.mother.name = .balice
 
-      assert sys.value == {
+      assert sys.get{} == {
          mother = {greeting = 'Hello, my name is balice!'}
          father = {greeting = 'Hello, my name is bob!'}
       }
+
 
    it "compositions can be modified and are parsimonious":
 
@@ -169,52 +178,25 @@ describe "Reactive functions":
       assert @say-parent-names.orig.count == 2
       assert @say-name.orig.count == 4
 
+      assert sys.get{} == {
+         mother = {greeting = 'Hello, my name is gob!'}
+         father = {greeting = 'Hello, my name is gob!'}
+      }
 
-   describe "on SBArray":
-
-      before-each:
-         @people = A{alice, bob, clara}
-         @sys = System{@people, @say-names}
-
-      it "basic":
-         assert @sys.value == {
-            'Hello, my name is alice!'
-            'Hello, my name is bob!'
-            'Hello, my name is clara!'
-         }
-         @sys.transact with {people} ->
-            people.get{0}.name = .albert
-         assert @sys.value == {
-            'Hello, my name is albert!'
-            'Hello, my name is bob!'
-            'Hello, my name is clara!'
-         }
-         @sys.transact with {people} ->
-            people.set{0, donald}
-         assert @sys.value == {
-            'Hello, my name is donald!'
-            'Hello, my name is bob!'
-            'Hello, my name is clara!'
-         }
-
-      it "modify with each":
-         @sys.transact with {people} ->
-            people each person -> person.name += "o"
-         assert @sys.value == {
-            'Hello, my name is aliceo!'
-            'Hello, my name is bobo!'
-            'Hello, my name is clarao!'
-         }
-
-      it "push value":
-         @sys.transact with {people} ->
-            people.push with fork{donald}
-         assert @sys.value == {
-            'Hello, my name is alice!'
-            'Hello, my name is bob!'
-            'Hello, my name is clara!'
-            'Hello, my name is donald!'
-         }
+   it "operates in-place":
+      sys = System{clara, @say-parent-names}
+      orig = sys.get{}
+      assert orig == {
+         mother = {greeting = 'Hello, my name is alice!'}
+         father = {greeting = 'Hello, my name is bob!'}
+      }
+      sys.transact with {clara} ->
+         {=> mother, => father} = clara
+         {clara.mother, clara.father} = {father, mother}
+      assert orig == {
+         mother = {greeting = 'Hello, my name is bob!'}
+         father = {greeting = 'Hello, my name is alice!'}
+      }
 
 
    describe "miscellaneous tests":
@@ -224,7 +206,7 @@ describe "Reactive functions":
          sys.transact with {clara} ->
             {=> mother, => father} = clara
             {clara.mother, clara.father} = {father, mother}
-         assert sys.value == {
+         assert sys.get{} == {
             mother = {greeting = 'Hello, my name is bob!'}
             father = {greeting = 'Hello, my name is alice!'}
          }
@@ -236,7 +218,7 @@ describe "Reactive functions":
             mother.name = .yann
             father.name = .zoe
             {clara.mother, clara.father} = {father, mother}
-         assert sys.value == {
+         assert sys.get{} == {
             mother = {greeting = 'Hello, my name is zoe!'}
             father = {greeting = 'Hello, my name is yann!'}
          }
@@ -245,7 +227,7 @@ describe "Reactive functions":
          sys = System{clara, @say-parent-names}
          sys.transact with {clara} ->
             clara.mother.name = .gertrude
-         assert sys.value == {
+         assert sys.get{} == {
             mother = {greeting = 'Hello, my name is gertrude!'}
             father = {greeting = 'Hello, my name is bob!'}
          }
@@ -255,10 +237,10 @@ describe "Reactive functions":
          sys = System{clara, @say-parent-names}
 
          sys.transact with {clara} ->
-            clara.mother = fork{emily}
-            clara.father = fork{donald}
+            clara.mother = emily
+            clara.father = donald
 
-         assert sys.value == {
+         assert sys.get{} == {
             mother = {greeting = 'Hello, my name is emily!'}
             father = {greeting = 'Hello, my name is donald!'}
          }
@@ -267,7 +249,249 @@ describe "Reactive functions":
             clara.mother.name = .esmeralda
             clara.father.name = .dumbledore
 
-         assert sys.value == {
+         assert sys.get{} == {
             mother = {greeting = 'Hello, my name is esmeralda!'}
             father = {greeting = 'Hello, my name is dumbledore!'}
          }
+
+
+
+
+
+;; struct Person:
+;;    name, age, mother, father
+;;    say-name{} =
+;;       'My name is {@name}!'
+;;    get-older{n = 1} =
+;;       @age += n
+
+;; alice = Person{name = .alice, age = 51}
+;; bob = Person{name = .bob, age = 56}
+;; clara = Person{name = .clara, age = 20, mother = alice, father = bob}
+;; donald = Person{name = .donald, age = 79}
+;; emily = Person{name = .emily, age = 49}
+;; francis = Person{name = .francis, age = 20, mother = emily, father = donald}
+;; gerard = Person{name = .gerard, age = 2, mother = clara, father = francis}
+;; helen = Person{name = .helen, age = 2913}
+
+;; aid = alice[ID]
+;; bid = bob[ID]
+;; cid = clara[ID]
+;; did = donald[ID]
+;; eid = emily[ID]
+;; fid = francis[ID]
+;; gid = gerard[ID]
+;; hid = helen[ID]
+
+
+
+;; describe "Reactive functions":
+
+;;    before-each:
+
+;;       count-calls! reactive-function! @say-name{person} =
+;;          {greeting = 'Hello, my name is {person.name}!'}
+
+;;       count-calls! reactive-function! @say-names{people} =
+;;          rval = SBArray{people each person -> 'Hello, my name is {person.name}!'}
+;;          rval
+;;          people each person -> 'Hello, my name is {person.name}!'
+
+;;       count-calls! reactive-function! @say-parent-names{person} =
+;;          {mother = @say-name{person.mother}
+;;           father = @say-name{person.father}}
+
+
+;;    it "called through System":
+;;       sys = System{clara, @say-name}
+;;       assert sys.value == {greeting = 'Hello, my name is clara!'}
+
+;;    it "can be updated":
+
+;;       sys = System{clara, @say-name}
+;;       assert sys.value == {greeting = 'Hello, my name is clara!'}
+
+;;       sys.transact with {clara} ->
+;;          clara.name = "clairette"
+;;       assert sys.value == {greeting = 'Hello, my name is clairette!'}
+
+;;    it "is parsimonious":
+
+;;       assert @say-name.orig.count == 0
+
+;;       ;; Called to initialize
+;;       sys = System{clara, @say-name}
+;;       assert @say-name.orig.count == 1
+
+;;       ;; Change is irrelevant because @say-name does not use age,
+;;       ;; so @say-name should not be called again.
+;;       sys.transact with {clara} ->
+;;          clara.age = 21
+;;       assert @say-name.orig.count == 1
+
+;;       ;; Change is relevant, @say-name should be called
+;;       sys.transact with {clara} ->
+;;          clara.name = "clairette"
+;;       assert @say-name.orig.count == 2
+
+;;       ;; Irrelevant change again
+;;       sys.transact with {clara} ->
+;;          clara.mother = clara.father
+;;       assert @say-name.orig.count == 2
+
+;;       ;; Relevant change again
+;;       sys.transact with {clara} ->
+;;          clara.name = "bob"
+;;       assert @say-name.orig.count == 3
+
+;;    it "composes":
+;;       sys = System{clara, @say-parent-names}
+
+;;       assert sys.value == {
+;;          mother = {greeting = 'Hello, my name is alice!'}
+;;          father = {greeting = 'Hello, my name is bob!'}
+;;       }
+
+;;    it "compositions can be modified":
+
+;;       sys = System{clara, @say-parent-names}
+
+;;       sys.transact with {clara} ->
+;;          clara.mother.name = .balice
+
+;;       assert sys.value == {
+;;          mother = {greeting = 'Hello, my name is balice!'}
+;;          father = {greeting = 'Hello, my name is bob!'}
+;;       }
+
+;;    it "compositions can be modified and are parsimonious":
+
+;;       assert @say-parent-names.orig.count == 0
+;;       assert @say-name.orig.count == 0
+
+;;       sys = System{clara, @say-parent-names}
+
+;;       assert @say-parent-names.orig.count == 1
+;;       assert @say-name.orig.count == 2
+
+;;       sys.transact with {clara} ->
+;;          clara.mother.name = .balice
+
+;;       assert @say-parent-names.orig.count == 1
+;;       assert @say-name.orig.count == 3
+
+;;       sys.transact with {clara} ->
+;;          clara.father.age = 88
+
+;;       assert @say-parent-names.orig.count == 1
+;;       assert @say-name.orig.count == 3
+
+;;       sys.transact with {clara} ->
+;;          clara.father.name = .gob
+;;          clara.mother = clara.father
+
+;;       assert @say-parent-names.orig.count == 2
+;;       assert @say-name.orig.count == 4
+
+
+;;    describe "on SBArray":
+
+;;       before-each:
+;;          @people = A{alice, bob, clara}
+;;          @sys = System{@people, @say-names}
+
+;;       it "basic":
+;;          assert @sys.value == {
+;;             'Hello, my name is alice!'
+;;             'Hello, my name is bob!'
+;;             'Hello, my name is clara!'
+;;          }
+;;          @sys.transact with {people} ->
+;;             people.get{0}.name = .albert
+;;          assert @sys.value == {
+;;             'Hello, my name is albert!'
+;;             'Hello, my name is bob!'
+;;             'Hello, my name is clara!'
+;;          }
+;;          @sys.transact with {people} ->
+;;             people.set{0, donald}
+;;          assert @sys.value == {
+;;             'Hello, my name is donald!'
+;;             'Hello, my name is bob!'
+;;             'Hello, my name is clara!'
+;;          }
+
+;;       it "modify with each":
+;;          @sys.transact with {people} ->
+;;             people each person -> person.name += "o"
+;;          assert @sys.value == {
+;;             'Hello, my name is aliceo!'
+;;             'Hello, my name is bobo!'
+;;             'Hello, my name is clarao!'
+;;          }
+
+;;       it "push value":
+;;          @sys.transact with {people} ->
+;;             people.push with fork{donald}
+;;          assert @sys.value == {
+;;             'Hello, my name is alice!'
+;;             'Hello, my name is bob!'
+;;             'Hello, my name is clara!'
+;;             'Hello, my name is donald!'
+;;          }
+
+
+;;    describe "miscellaneous tests":
+
+;;       it "swap":
+;;          sys = System{clara, @say-parent-names}
+;;          sys.transact with {clara} ->
+;;             {=> mother, => father} = clara
+;;             {clara.mother, clara.father} = {father, mother}
+;;          assert sys.value == {
+;;             mother = {greeting = 'Hello, my name is bob!'}
+;;             father = {greeting = 'Hello, my name is alice!'}
+;;          }
+
+;;       it "change all":
+;;          sys = System{clara, @say-parent-names}
+;;          sys.transact with {clara} ->
+;;             {=> mother, => father} = clara
+;;             mother.name = .yann
+;;             father.name = .zoe
+;;             {clara.mother, clara.father} = {father, mother}
+;;          assert sys.value == {
+;;             mother = {greeting = 'Hello, my name is zoe!'}
+;;             father = {greeting = 'Hello, my name is yann!'}
+;;          }
+
+;;       it "deep change":
+;;          sys = System{clara, @say-parent-names}
+;;          sys.transact with {clara} ->
+;;             clara.mother.name = .gertrude
+;;          assert sys.value == {
+;;             mother = {greeting = 'Hello, my name is gertrude!'}
+;;             father = {greeting = 'Hello, my name is bob!'}
+;;          }
+
+;;       it "some test":
+
+;;          sys = System{clara, @say-parent-names}
+
+;;          sys.transact with {clara} ->
+;;             clara.mother = fork{emily}
+;;             clara.father = fork{donald}
+
+;;          assert sys.value == {
+;;             mother = {greeting = 'Hello, my name is emily!'}
+;;             father = {greeting = 'Hello, my name is donald!'}
+;;          }
+
+;;          sys.transact with {clara} ->
+;;             clara.mother.name = .esmeralda
+;;             clara.father.name = .dumbledore
+
+;;          assert sys.value == {
+;;             mother = {greeting = 'Hello, my name is esmeralda!'}
+;;             father = {greeting = 'Hello, my name is dumbledore!'}
+;;          }

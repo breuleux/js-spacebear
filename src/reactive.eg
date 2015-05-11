@@ -2,11 +2,12 @@
 require:
    "./index" ->
       deprox
-      read-proxy, write-proxy, patch, fork
+      read-proxy, write-proxy ;;, patch, fork
       iterate-properties
-      intersect, directory
+      intersect, directory, Directory
    "./util" ->
-      tuck, identify, fork-identify, ID, FORKID, VERSION
+      tuck, identify, fork-identify
+      ID, FORKID, VERSION, DIRECTORY, CACHE
 
 provide:
    Reactive, reactive-function
@@ -26,144 +27,201 @@ args-key{args} =
    args.map{arg-key}.join{"\x00"}
 
 
+get-replacement{match cached} =
+   {=> get-replacement! replacement} ->
+      replacement
+   else ->
+      cached
+
+
 class CachedResult:
 
-   constructor{@value, @deps, @version
-               @maybe-dirty-children = false
-               @walk-later = false} =
+   constructor{@reactive, @args, @value, @deps, @version} =
       @children = {}
-      if not @walk-later:
-         @walk{@value}
+      @walk{@value}
 
-   walk{v} =
+   walk{identify! v} =
       iterate-properties{v} each {k, match obj, gen-patch} ->
-         {"::reactive" => r, "::arguments" => args, "::cached" => cached} ->
-            @children.push with {k, v[ID], r, args, cached, gen-patch}
+         {^CACHE => cached} when cached ->
+            @children.push with {k, v[ID], cached, gen-patch}
          else ->
-            @walk{obj, patch}
+            @walk{obj}
       undefined
 
-   transform-patch{the-patch, new-patch, dir} =
-      if @walk-later:
-         @walk{@value}
-         @walk-later = false
+   transform-patch-children{the-patch, new-patch, dir} =
+      {children, @children} = {@children, {}}
+      children each {k, vid, orig-cached and get-replacement! cached, gen-patch} ->
+         if not cached.transform-patch{the-patch, new-patch, dir}:
+            new-cached = cached.reactive.render{cached.args, true}
+            cached.replacement = new-cached
+            new-cached.transform-patch-children{the-patch, new-patch, dir}
+            gen-patch{new-patch, new-cached.value}
+            @children.push with {k, vid, new-cached, gen-patch}
+         elif orig-cached !== cached:
+            gen-patch{new-patch, cached.value}
+            @children.push with {k, vid, cached, gen-patch}
+         else:
+            @children.push with {k, vid, cached, gen-patch}
 
-      do-children{} =
-         @children each data and {k, vid, r, args, cached, gen-patch} ->
-            if not cached.transform-patch{the-patch, new-patch, dir}:
-               new-value = r.render-with-patch{the-patch, new-patch, args, dir}
-               gen-patch{new-patch, new-value}
+         ;;    new-value = cached.reactive.render-with-patch{
+         ;;       the-patch, new-patch, cached.args, dir
+         ;;    }
+         ;;    gen-patch{new-patch, new-value}
+         ;;    @children.push with {k, vid, new-value.cached, gen-patch}
+         ;; else:
+         ;;    @children.push{data}
 
-      match the-patch[VERSION]:
-         [== [@version + 1]] ->
-            dirty = intersect{@deps, the-patch, dir}
-            if dirty:
-               false
-            else:
-               do-children{}
-               @version += 1
-               true
-         [== @version] ->
-            if @maybe-dirty-children:
-               @maybe-dirty-children = false
-               do-children{}
-               true
-            else:
-               true
-         else ->
-            ;; At least one patch was skipped, so we have to recompile
+   transform-patch{the-patch, new-patch, dir and {version => match}} =
+      == @version or when not @version ->
+         @transform-patch-children{the-patch, new-patch, dir}
+         true
+      == [@version + 1] ->
+         dirty = @deps and intersect{@deps, the-patch, dir}
+         if dirty:
             false
+         else:
+            @transform-patch-children{the-patch, new-patch, dir}
+            @version += 1
+            true
+      else ->
+         false
 
 
 class Reactive:
 
-   constructor{@renderfn-scratch, @renderfn-patch} =
+   constructor{@renderfn} =
       @argmap = {=}
 
-   render-with-patch{the-patch, new-patch, args, dir} =
+   render{args, force = false} =
       key = args-key{args}
       cached =
          match @argmap[key]:
-            undefined? ->
+            undefined? or [== true is force] ->
                @render-cache-object{args}
             cached ->
                cached
       @argmap[key] = cached
-      if the-patch:
-         if not cached.transform-patch{the-patch, new-patch, dir}:
-            ;; if @renderfn-patch:
-
-            ;;    ???
-            ;;    deps = {=}
-            ;;    if @renderfn-patch.call{@, pargs, the-patch, new-patch, deps}:
-            ;;       pass
-            ;;    else:
-            ;;       return cached.value
-            ;;    ???
-
-            ;;    eeee
-
-            delete @argmap[key]
-            return @render-with-patch{the-patch, new-patch, args, dir}
-      cached.value
+      cached
 
    render-cache-object{args} =
       deps = {=}
-      var version = null
-      pargs = args each deprox! arg ->
-         version or= arg[VERSION]
-         read-proxy{arg, deps}
-      res = identify{@renderfn-scratch.apply{@, pargs}}
-      cache = CachedResult{res, deps, version, true}
-      tuck{res, "::reactive", [@]}
-      tuck{res, "::arguments", args}
-      tuck{res, "::cached", cache}
-      cache
+      pargs = args each deprox! arg -> read-proxy{arg, deps}
+      {=> version = null} = deps[DIRECTORY]
+      res = identify{@renderfn.apply{@, pargs}}
+      cached = CachedResult{@, args, res, deps, version}
+      tuck{res, CACHE, cached}
+      cached
 
-   render{args} =
-      @render-cache-object{args}.value
+
+   ;; render-from-cache{args} =
+   ;;    key = args-key{args}
+   ;;    cached =
+   ;;       match @argmap[key]:
+   ;;          undefined? ->
+   ;;             @render-cache-object{args}
+   ;;          cached ->
+   ;;             cached
+   ;;    @argmap[key] = cached
+   ;;    cached
+
+   ;; render-with-patch{the-patch, new-patch, args, dir} =
+   ;;    cached = @render-from-cache{args}
+   ;;    if not cached.transform-patch{the-patch, new-patch, dir}:
+   ;;       delete @argmap[key]
+   ;;       return @render-with-patch{the-patch, new-patch, args, dir}
+   ;;    cached.value
+
+   ;; render{args} =
+   ;;    @render-cache-object{args}.value
 
 
 class System:
 
-   constructor{@origin, @render} =
-      @basis = fork{@origin}
-      @bdir = directory{@basis}
+   constructor{@origin, @render, @options = {=}} =
+      {clobber-patch => @clobber-patch = true} = @options
 
-      @value = @render{@basis}
-      @vdir = directory{@value}
+      @bdir = Directory{}
+      @basis = @bdir.acquire{@origin}
 
-      @version = 1
+      @vdir = Directory{clobber-patch = @clobber-patch}
+      @value-root = CachedResult{null, null, r, null} where
+         r = @vdir.acquire with {root = @render{@basis}}
+
+   get{} =
+      @value-root.value.root
 
    update{the-patch} =
-      patch{@basis, the-patch, @bdir}
+      @bdir.patch{the-patch}
       new-patch = {=}
-      tuck{new-patch, VERSION, @version}
+      ;; if not @value["::cached"].transform-patch{the-patch, new-patch, @bdir}:
+      ;;    new-value = @render{@basis}
+      ;;    new-value.transform-patch-children{the-patch, new-patch, @bdir}
+      ;;    @value = @vdir.replace{@value, new-value}
+
       ;; print the-patch
-      ;; print @value["::cached"].deps
-      @value = @value["::reactive"].render-with-patch{
-         the-patch, new-patch, {@basis}, @bdir
-      }
-      directory{@value, @vdir}
-      patch{@value, new-patch, @vdir}
+      @value-root.transform-patch{the-patch, new-patch, @bdir}
+      ;; print new-patch
+      @vdir.patch{new-patch}
 
    transact{fn, Array! roots = @basis} =
-      let patch = Object.create{null}
+      let patch = {=}
       proxies = roots each root -> write-proxy{root, patch}
       fn.apply{this, proxies}
-      @version += 1
-      tuck{patch, VERSION, @version}
       @update{patch}
 
 
 reactive-function{render} =
    r = Reactive{render}
    rval{*args} =
-      r.render-with-patch{null, null, args, null}
+      r.render{args}.value
    rval.orig = render
    rval
 
+
+
+
+
 ;; reactive-each{render-item} =
+;;    r = Reactive{render}
+;;    rval{*args} =
+;;       r.render-with-patch{null, null, args, null}
+;;    rval.orig = render
+;;    rval
+
+
+;; class System:
+
+;;    constructor{@origin, @render} =
+;;       @basis = fork{@origin}
+;;       @bdir = directory{@basis}
+
+;;       @value = @render{@basis}
+;;       @vdir = directory{@value}
+
+;;       @version = 1
+
+;;    update{the-patch} =
+;;       patch{@basis, the-patch, @bdir}
+;;       new-patch = {=}
+;;       tuck{new-patch, VERSION, @version}
+;;       ;; print the-patch
+;;       ;; print @value["::cached"].deps
+;;       @value = @value["::reactive"].render-with-patch{
+;;          the-patch, new-patch, {@basis}, @bdir
+;;       }
+;;       directory{@value, @vdir}
+;;       patch{@value, new-patch, @vdir}
+
+;;    transact{fn, Array! roots = @basis} =
+;;       let patch = Object.create{null}
+;;       proxies = roots each root -> write-proxy{root, patch}
+;;       fn.apply{this, proxies}
+;;       @version += 1
+;;       tuck{patch, VERSION, @version}
+;;       @update{patch}
+
+
+;; reactive-function{render} =
 ;;    r = Reactive{render}
 ;;    rval{*args} =
 ;;       r.render-with-patch{null, null, args, null}
