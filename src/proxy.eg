@@ -78,7 +78,12 @@ proxy-proto-cache = {=}
 
 proxy-proto-for{obj} =
    orig-proto = Object.get-prototype-of{obj}
-   pid = if{orig-proto, tuck{orig-proto, PROTOID, next-id{}}, null}
+   pid = match orig-proto:
+      null? or undefined? -> null
+      when Object.has-own-property.call{orig-proto, PROTOID} ->
+         orig-proto[PROTOID]
+      else -> tuck{orig-proto, PROTOID, next-id{}}
+
    the-keys = keys{obj}.sort{}
    key = '{pid}\x01{the-keys.join{"\x00"}}'
    match proxy-proto-cache[key]:
@@ -93,6 +98,7 @@ proxy-proto-for{obj} =
          proto._get = basic-get
          proto._set = basic-set
          expr-value proxy-proto-cache[key] = proto
+         proto
       proto ->
          proto
 
