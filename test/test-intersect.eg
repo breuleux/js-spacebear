@@ -12,9 +12,8 @@ require:
    "../src/index" ->
       identify
       make-struct, read-proxy, write-proxy
-      fork, directory, Directory
-      patch, changed-relevantly, intersect
-      clobber
+      directory, Directory
+      changed-relevantly, intersect
       ID, FORKID
    "./people" ->
       alice, bob, clara, donald
@@ -26,8 +25,8 @@ describe "changed-relevantly and intersect":
    before-each:
       @tracks = {=}
       @patch = {=}
-      @clara = fork{clara}
-      @dir = directory{@clara}
+      @dir = Directory{}
+      @clara = @dir.acquire{clara}
       @clarar = read-proxy{@clara, @tracks}
       @claraw = write-proxy{@clara, @patch}
 

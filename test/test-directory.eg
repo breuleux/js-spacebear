@@ -193,6 +193,56 @@ describe "directory":
          assert @dir2.get-all{aid} == {alice}
          assert @dir2.get-all{eid} == {emily}
 
+      describe "simple tests":
+         before-each:
+            @x = @dir.acquire with {a = 1, b = 2}
+            @xid = @x[ID]
+            @clobber{y, expect-clobber = true} =
+               rval = @dir.clobber{@x, y}
+               assert rval == y
+               if expect-clobber:
+                  assert rval === @x
+                  assert rval !== y
+               else:
+                  assert rval !== @x
+                  assert rval === y
+               rval
+
+         it "works":
+            @clobber{{a = 3, b = 4}}
+
+         it "deletes missing properties":
+            @clobber{{b = 2}}
+
+         it "deletes all properties":
+            @clobber{{=}}
+
+         it "adds new properties":
+            @clobber{{a = 3, b = 4, c = 5}}
+
+         it "transfers ID":
+            identify! y = {a = 3, b = 4, c = 5}
+            r = @clobber{y}
+            assert r[ID] === y[ID]
+            assert r[ID] !== @xid
+
+         it "recursive":
+            x = @dir.acquire with
+               {x = {a = 1, b = 2}, y = {c = 3, d = 4}}
+            y = {x = {a = 6, m = 7}, y = {n = 9}}
+            r = @dir.clobber{x, y}
+            assert x == y
+
+         it "can only clobber if same prototype":
+            y = Object.create{{=}}
+            @clobber{y, false}
+
+         it "array":
+            x = @dir.acquire with {1, 2, 3, 4}
+            y = {5, 6}
+            r = @dir.clobber{x, y}
+            assert r == y
+
 
    describe "replace":
 
