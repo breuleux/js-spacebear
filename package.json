@@ -4,11 +4,12 @@
   "description": "SPACE BEAR",
   "main": "lib/index.js",
   "dependencies": {
-    "earlgrey-runtime": ">=0.0.5",
+    "earlgrey-runtime": ">=0.0.7",
     "lodash": "^3.8.0"
   },
   "devDependencies": {
-    "earlgrey": ">=0.0.1"
+    "earlgrey": ">=0.0.2",
+    "earl-mocha": ">=0.0.2"
   },
   "scripts": {
     "test": "mocha"
