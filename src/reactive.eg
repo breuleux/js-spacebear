@@ -63,14 +63,6 @@ class CachedResult:
          else:
             @children.push with {k, vid, cached, gen-patch}
 
-         ;;    new-value = cached.reactive.render-with-patch{
-         ;;       the-patch, new-patch, cached.args, dir
-         ;;    }
-         ;;    gen-patch{new-patch, new-value}
-         ;;    @children.push with {k, vid, new-value.cached, gen-patch}
-         ;; else:
-         ;;    @children.push{data}
-
    transform-patch{the-patch, new-patch, dir and {version => match}} =
       == @version or when not @version ->
          @transform-patch-children{the-patch, new-patch, dir}
@@ -113,35 +105,13 @@ class Reactive:
       cached
 
 
-   ;; render-from-cache{args} =
-   ;;    key = args-key{args}
-   ;;    cached =
-   ;;       match @argmap[key]:
-   ;;          undefined? ->
-   ;;             @render-cache-object{args}
-   ;;          cached ->
-   ;;             cached
-   ;;    @argmap[key] = cached
-   ;;    cached
-
-   ;; render-with-patch{the-patch, new-patch, args, dir} =
-   ;;    cached = @render-from-cache{args}
-   ;;    if not cached.transform-patch{the-patch, new-patch, dir}:
-   ;;       delete @argmap[key]
-   ;;       return @render-with-patch{the-patch, new-patch, args, dir}
-   ;;    cached.value
-
-   ;; render{args} =
-   ;;    @render-cache-object{args}.value
-
-
 class System:
 
    constructor{@origin, @render, @options = {=}} =
       {clobber-patch => @clobber-patch = true} = @options
 
       @bdir = Directory{}
-      @basis = @bdir.acquire{@origin}
+      @basis = @bdir.acquire-copy{@origin}
 
       @vdir = Directory{clobber-patch = @clobber-patch}
       @value-root = CachedResult{null, null, r, null} where
@@ -153,17 +123,10 @@ class System:
    update{the-patch} =
       @bdir.patch{the-patch}
       new-patch = {=}
-      ;; if not @value["::cached"].transform-patch{the-patch, new-patch, @bdir}:
-      ;;    new-value = @render{@basis}
-      ;;    new-value.transform-patch-children{the-patch, new-patch, @bdir}
-      ;;    @value = @vdir.replace{@value, new-value}
-
-      ;; print the-patch
       @value-root.transform-patch{the-patch, new-patch, @bdir}
-      ;; print new-patch
       @vdir.patch{new-patch}
 
-   transact{fn, Array! roots = @basis} =
+   transact{fn, Array! roots = {@basis}} =
       let patch = {=}
       proxies = roots each root -> write-proxy{root, patch}
       fn.apply{this, proxies}
@@ -176,54 +139,3 @@ reactive-function{render} =
       r.render{args}.value
    rval.orig = render
    rval
-
-
-
-
-
-;; reactive-each{render-item} =
-;;    r = Reactive{render}
-;;    rval{*args} =
-;;       r.render-with-patch{null, null, args, null}
-;;    rval.orig = render
-;;    rval
-
-
-;; class System:
-
-;;    constructor{@origin, @render} =
-;;       @basis = fork{@origin}
-;;       @bdir = directory{@basis}
-
-;;       @value = @render{@basis}
-;;       @vdir = directory{@value}
-
-;;       @version = 1
-
-;;    update{the-patch} =
-;;       patch{@basis, the-patch, @bdir}
-;;       new-patch = {=}
-;;       tuck{new-patch, VERSION, @version}
-;;       ;; print the-patch
-;;       ;; print @value["::cached"].deps
-;;       @value = @value["::reactive"].render-with-patch{
-;;          the-patch, new-patch, {@basis}, @bdir
-;;       }
-;;       directory{@value, @vdir}
-;;       patch{@value, new-patch, @vdir}
-
-;;    transact{fn, Array! roots = @basis} =
-;;       let patch = Object.create{null}
-;;       proxies = roots each root -> write-proxy{root, patch}
-;;       fn.apply{this, proxies}
-;;       @version += 1
-;;       tuck{patch, VERSION, @version}
-;;       @update{patch}
-
-
-;; reactive-function{render} =
-;;    r = Reactive{render}
-;;    rval{*args} =
-;;       r.render-with-patch{null, null, args, null}
-;;    rval.orig = render
-;;    rval
