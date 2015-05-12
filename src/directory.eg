@@ -36,36 +36,38 @@ class Directory:
    get-canon{v} =
       v and v[ID] and @get{v[ID]} or v
 
-
-   enter{match value, add-children = true} =
+   enter{deprox! match value, add-children = true} =
       null? or undefined? or Number? or String? or Symbol? or Boolean? ->
          value
-      v when not @duplicate ->
-         {@dir[v[ID]], return} =
-            match @dir[v[ID]]:
+      do:
+         identify! value
+         fork-identify! value
+      when not @duplicate ->
+         {@dir[value[ID]], return} =
+            match @dir[value[ID]]:
                undefined? ->
-                  tuck{v, DIRECTORY, @}
+                  tuck{value, DIRECTORY, @}
                   if add-children:
-                     iterate-properties{v} each {k, v2, replace} ->
+                     iterate-properties{value} each {k, v2, replace} ->
                         @enter{v2, true}
-                  {{1, v}, v}
-               {count, v} ->
-                  {{count + 1, v}, v}
+                  {{1, value}, value}
+               {count, value} ->
+                  {{count + 1, value}, value}
 
-      deprox! fork-identify! v ->
-         sub = [@dir[v[ID]] or= {=}]
-         fid = v[FORKID]
+      else ->
+         sub = [@dir[value[ID]] or= {=}]
+         fid = value[FORKID]
          match sub[fid]:
             undefined? ->
-               tuck{v, DIRECTORY, @}
-               sub[fid] = {1, v}
+               tuck{value, DIRECTORY, @}
+               sub[fid] = {1, value}
                if add-children:
-                  iterate-properties{v} each {k, v2, replace} ->
+                  iterate-properties{value} each {k, v2, replace} ->
                      @enter{v2, true}
-               v
-            {count, v} ->
-               sub[fid] = {count + 1, v}
-               v
+               value
+            {count, value} ->
+               sub[fid] = {count + 1, value}
+               value
 
    exit{match v, remove-children = true} =
       null? or undefined? or Number? or String? or Symbol? or Boolean? ->
@@ -90,7 +92,14 @@ class Directory:
                      iterate-properties{v} each {k, v2, replace} ->
                         @exit{v2, true}
 
-   acquire{match v} =
+   acquire-copy{deprox! v} =
+      if v and not v[DIRECTORY]:
+         ;; v can't belong to more than one directory, so we
+         ;; acquire it with a throwaway Directory
+         Directory{}.acquire{v}
+      @acquire{v}
+
+   acquire{deprox! match v} =
       null? or undefined? or Number? or String? or Symbol? or Boolean? ->
          v
       identify! [{^DIRECTORY => d} or d is undefined] and match is d ->
@@ -116,11 +125,11 @@ class Directory:
          undefined? -> @acquire{v}
          x -> x
 
-   fork{match value} =
+   fork{identify! match value} =
       null? or undefined? or Number? or String? or Symbol? or Boolean? ->
          value
-      when not @duplicate and @get{value[ID] or -1} ->
-         @get{value[ID] or -1}
+      when not @duplicate and @get{value[ID]} ->
+         @get{value[ID]}
       {fork => Function?} ->
          throw E.not-implemented{}
          deprox{value}.fork{@}
@@ -165,7 +174,7 @@ class Directory:
 ;; FORK HELPERS ;;
 ;;;;;;;;;;;;;;;;;;
 
-array-fork{identify! arr, dir} =
+array-fork{deprox! identify! arr, dir} =
    rval = {}
    {ID, CACHE} each field ->
       tuck{rval, field, arr[field]}
@@ -175,7 +184,7 @@ array-fork{identify! arr, dir} =
       rval.push{dir.acquire{x}}
    rval
 
-object-fork{identify! obj, dir} =
+object-fork{deprox! identify! obj, dir} =
    rval = Object.create{Object.get-prototype-of{obj}}
    {ID, CACHE} each field ->
       tuck{rval, field, obj[field]}
@@ -194,14 +203,14 @@ directory{v, dir = Directory{}} =
 ;; PATCH HELPERS ;;
 ;;;;;;;;;;;;;;;;;;;
 
-patch-shallow{match value, p, dir} =
+patch-shallow{deprox! match value, p, dir} =
    null? or undefined? or Number? or String? or Symbol? or Boolean? ->
       pass
    {patch => Function?} ->
       deprox{value}.patch{p, dir}
    Array? arr ->
       array-patch{arr, p, dir}
-   deprox! obj ->
+   obj ->
       object-patch{obj, p, dir}
       undefined
 
@@ -241,8 +250,10 @@ array-patch{arr, p, dir, wrapper = arr} =
 ;;;;;;;;;;;;;;;;;;;;;
 
 object-clobber{obj, new-obj, dir} =
+
    if Object.get-prototype-of{obj} !== Object.get-prototype-of{new-obj}:
       return dir.acquire{new-obj}
+
    dir.exit{obj}
    items{obj} each
       {k, v} when not Object.has-own-property.call{new-obj, k} ->
@@ -253,9 +264,9 @@ object-clobber{obj, new-obj, dir} =
          pass
       else ->
          obj[k] = dir.clobber{obj[k], v}
-   {ID} each field ->
-      tuck{obj, field, new-obj[field]}
+   tuck{obj, ID, new-obj[ID]}
    dir.enter{obj}
+
    obj
 
 
@@ -263,6 +274,7 @@ array-clobber{arr, new-arr, dir} =
 
    if not Array? new-arr:
       return dir.acquire{new-arr}
+
    dir.exit{arr}
 
    ;; 1. For each element of the new array, find the index of the
@@ -311,4 +323,6 @@ array-clobber{arr, new-arr, dir} =
       old-current = old-i + 1
       new-current = new-i + 1
 
+   tuck{arr, ID, new-arr[ID]}
+   dir.enter{arr}
    arr
