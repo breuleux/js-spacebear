@@ -12,6 +12,7 @@ require:
 
 provide:
    Directory, directory
+   object-clobber-helper
 
 
 class Directory:
@@ -249,21 +250,35 @@ array-patch{arr, p, dir, wrapper = arr} =
 ;; CLOBBER HELPERS ;;
 ;;;;;;;;;;;;;;;;;;;;;
 
+object-clobber-helper{obj, new-obj, items, owns} =
+   operations = {}
+   items{obj} each
+      {k, v} when not owns{new-obj, k} ->
+         operations.push with #delete{k}
+   items{new-obj} each {k, match v} ->
+      do: v0 = obj[k]
+      === v0 or when v0 and v0[ID] and v and v[ID] == v0[ID] ->
+         pass
+      else ->
+         operations.push with #put{k, v}
+   operations
+
 object-clobber{obj, new-obj, dir} =
 
    if Object.get-prototype-of{obj} !== Object.get-prototype-of{new-obj}:
       return dir.acquire{new-obj}
 
    dir.exit{obj}
-   items{obj} each
-      {k, v} when not Object.has-own-property.call{new-obj, k} ->
+
+   object-clobber-helper{
+      obj, new-obj, items
+      {a, b} -> Object.has-own-property.call{a, b}
+   } each
+      #delete{k} ->
          delete obj[k]
-   items{new-obj} each {k, match v} ->
-      do: v0 = obj[k]
-      === v0 or when v0 and v0[ID] and v and v[ID] == v0[ID] ->
-         pass
-      else ->
+      #put{k, v} ->
          obj[k] = dir.clobber{obj[k], v}
+
    tuck{obj, ID, new-obj[ID]}
    dir.enter{obj}
 
