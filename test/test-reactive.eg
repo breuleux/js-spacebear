@@ -179,6 +179,46 @@ describe "Reactive functions":
          father = {greeting = 'Hello, my name is alice!'}
       }
 
+
+   describe "custom root":
+
+      it "actions":
+         storage = {}
+         sys = System{clara, @say-name} with
+            action{x} = storage.push{1}
+         assert sys.get{} == {greeting = 'Hello, my name is clara!'}
+         assert storage == {1}
+
+      it "call action only when root changes":
+         storage = {}
+         sys = System{{alice, {bob, clara}}, @say-names} with
+            action{x} = storage.push{1}
+         assert storage == {1}
+
+         sys.transact with {people} ->
+            people.get{0}.name = "alison"
+         assert storage == {1, 1}
+
+         sys.transact with {people} ->
+            people.get{1}.get{0}.name = "balthazar"
+         assert storage == {1, 1}
+
+         assert sys.get{} == {
+            'Hello, my name is alison!'
+            {'Hello, my name is balthazar!'
+             'Hello, my name is clara!'}
+         }
+
+         sys.transact with {people} ->
+            people.set{1, donald}
+         assert storage == {1, 1, 1}
+
+         assert sys.get{} == {
+            'Hello, my name is alison!'
+            'Hello, my name is donald!'
+         }
+
+
    describe "on arrays":
 
       before-each:

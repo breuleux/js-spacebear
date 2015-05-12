@@ -1,0 +1,49 @@
+
+require:
+   "./util" ->
+      ID, CACHE, methods
+      tuck, fork-identify
+
+provide:
+   Root
+
+;;;;;;;;;;
+;; Root ;;
+;;;;;;;;;;
+
+class Root:
+
+   constructor{@root, @action = {x} -> x, @idle = false} =
+      if not @idle:
+         @action{@root}
+
+   [^methods.proxy]{tracks, patch, prevent-dirty-reads} =
+      throw E.proxy.not-implemented{"Root instances cannot be proxied."}
+
+   [^methods.iterate-properties]{} =
+      id = self[ID]
+      {{"root", @root, gen-patch}} where
+         gen-patch{patch, new-v} =
+            patch[id] or= {=}
+            patch[id].root = #update{new-v}
+
+   [^methods.fork]{dir} =
+      rval = Root{dir.acquire{@root}, @action}
+      {ID, CACHE} each field ->
+         tuck{rval, field, self[field]}
+      fork-identify{rval}
+      dir.enter{rval, false}
+      rval
+
+   [^methods.patch]{patch, dir} =
+      match patch[self[ID]]:
+         {root => #update{new-root}} ->
+            @root = dir.replace{@root, new-root}
+            @action{@root}
+         else ->
+            pass
+
+   [^methods.clobber]{new-root, dir} =
+      throw E.clobber.not-implemented{"Cannot clobber a Root."}
+
+

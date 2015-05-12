@@ -14,6 +14,10 @@ require:
       Directory
    "./relevant" ->
       intersect, changed-relevantly
+   "./root" ->
+      Root
+   "./vdom" ->
+      VNode, ENode, [%]
 
 provide:
    identify, tuck
@@ -25,4 +29,6 @@ provide:
    iterate-properties
    changed-relevantly
    intersect
+   Root
+   VNode, ENode, [%]
 

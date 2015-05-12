@@ -134,7 +134,6 @@ class Directory:
       when not @duplicate and @get{value[ID]} ->
          @get{value[ID]}
       {^methods.fork => Function?} ->
-         throw E.not-implemented{}
          deprox{value}[methods.fork]{@}
       Array? ->
          array-fork{deprox{value}, @}
@@ -196,9 +195,6 @@ array-fork{deprox! identify! arr, dir} =
    arr each x ->
       rval.push{dir.acquire{x}}
    rval
-
-;; directory{v, dir = Directory{}} =
-;;    dir.acquire{v}
 
 
 

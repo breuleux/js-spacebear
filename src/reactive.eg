@@ -8,6 +8,8 @@ require:
    "./util" ->
       tuck, identify, fork-identify
       ID, FORKID, VERSION, DIRECTORY, CACHE
+   "./root" ->
+      Root
 
 provide:
    Reactive, reactive-function
@@ -108,14 +110,15 @@ class Reactive:
 class System:
 
    constructor{@origin, @render, @options = {=}} =
-      {clobber-patch => @clobber-patch = true} = @options
+      {clobber-patch => @clobber-patch = true
+       action => @action = {x} -> x} = @options
 
       @bdir = Directory{}
       @basis = @bdir.acquire-copy{@origin}
 
       @vdir = Directory{clobber-patch = @clobber-patch}
       @value-root = CachedResult{null, null, r, null} where
-         r = @vdir.acquire with {root = @render{@basis}}
+         r = @vdir.acquire with Root{@render{@basis}, @action, true}
 
    get{} =
       @value-root.value.root
