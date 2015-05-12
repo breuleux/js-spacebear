@@ -6,9 +6,19 @@ require:
    "./directory" ->
       object-clobber-helper
       array-clobber-helper
-   /browser ->
-      document, Element
 
+provide:
+   VNode
+   EVNode as ENode
+   percent as [%]
+
+globals:
+   document, Element
+
+
+;;;;;;;;;;;
+;; VNode ;;
+;;;;;;;;;;;
 
 class VNode:
 
@@ -154,11 +164,62 @@ class VNode:
                #acquire{x} -> dir.acquire{x}
             @children.splice{start, n, *acquired}
             if @dom-node:
-               acquired.reverse{} each c ->
+               anchor =
+                  if start === @children.length:
+                     null ;; insert at end
+                  else:
+                     @child-to-element{@children{start}}
+               acquired each c ->
                   elem = @child-to-element{c}
-                  @dom-node.insert-child{start, c} ;; or whatever
+                  @dom-node.insert-before{c, anchor}
 
       dir.enter{@}
       @
 
 
+;;;;;;;;;;;;;;;;
+;; % builders ;;
+;;;;;;;;;;;;;;;;
+
+tag_namespaces = {=}
+[tags each tag -> tag_namespaces[tag] = "http://www.w3.org/2000/svg"] where
+   tags = {
+      .svg
+      .circle, .line, .path, .rect, .text, .g
+   }
+
+extract{tags, props} =
+   var tag = .span
+   var id = null
+   var raw = null
+   var classes = match props:
+      {class => Array! c} or {class-name => Array! c} -> c
+      else -> {}
+   tags each
+      R"^\.(.*)"! {_, name} -> classes.push with name
+      R"^#(.*)"! {_, name} -> set-var id = name
+      .raw -> set-var raw = true
+      x -> set-var tag = x
+   {tag, id, classes, raw}
+
+EVNode{tags, props, Array! children} =
+   {tag, id, classes, raw} = extract{tags, props}
+   if id:
+      if props.id:
+         throw E.duplicate_id{"Duplicate id: " + id + " " + props.id}
+      else:
+         props.id = id
+   if classes.length > 0:
+      props.class = classes
+
+   namespace = tag_namespaces[String! tag]
+
+   if raw:
+      VNode{tag, props, children, {namespace = namespace}}
+   else:
+      {child} = children
+      VNode{tag, props, {}, {raw = child, namespace = namespace}}
+
+macro{EVNode} percent{#data{x, y}} =
+   let {=> EVNode} = @deps
+   `[^x % ^y] where ENode = [^EVNode]`
