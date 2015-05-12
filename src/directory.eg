@@ -14,6 +14,7 @@ require:
 provide:
    Directory
    object-clobber-helper
+   array-clobber-helper
 
 
 class Directory:
@@ -285,12 +286,8 @@ object-clobber{obj, new-obj, dir} =
 
    obj
 
-array-clobber{arr, new-arr, dir} =
 
-   if not Array? new-arr:
-      return dir.acquire{new-arr}
-
-   dir.exit{arr}
+array-clobber-helper{arr, new-arr, duplicate = true} =
 
    ;; 1. For each element of the new array, find the index of the
    ;; corresponding element in the old array.
@@ -313,12 +310,10 @@ array-clobber{arr, new-arr, dir} =
    run = longest-run{indices, cmp, {-1, -1}} where
       cmp{{_, p1}, {_, p2}} = p1 < p2
 
-   orig = arr each x -> x
-
-   if dir.duplicate:
+   if duplicate:
       run each {new-i, old-i} ->
          ;; These will be automatically preserved
-         delete idpos[orig[old-i][ID]]
+         delete idpos[arr[old-i][ID]]
 
    run.push with {new-arr.length, arr.length}
 
@@ -326,17 +321,33 @@ array-clobber{arr, new-arr, dir} =
    var new-current = 0
    run each {new-i, old-i} ->
       inserts = new-arr.slice{new-current, new-i} each
-         entry and {_, orig} is idpos[entry[ID] or -1] when dir.duplicate ->
+         entry and {_, orig} is idpos[entry[ID] or -1] when duplicate ->
             ;; We can recover this entry; however dir.duplicate prevents
             ;; us from having the same reference more than once in the
             ;; tree, so we remove it from idpos so we can't reuse it.
             delete idpos[entry[ID]]
-            orig
+            #keep{orig}
          entry ->
-            dir.acquire{entry}
-      arr.splice{new-current, old-i - old-current, *inserts}
+            #acquire{entry}
+      res = #splice{new-current, old-i - old-current, inserts}
       old-current = old-i + 1
       new-current = new-i + 1
+      res
+
+
+array-clobber{arr, new-arr, dir} =
+
+   if not Array? new-arr:
+      return dir.acquire{new-arr}
+
+   dir.exit{arr}
+
+   array-clobber-helper{arr, new-arr, dir.duplicate} each
+      #splice{start, n, inserts} ->
+         arr.splice{start, n, *acquired} where
+            acquired = inserts each
+               #keep{x} -> x
+               #acquire{x} -> dir.acquire{x}
 
    tuck{arr, ID, new-arr[ID]}
    dir.enter{arr}
