@@ -13,7 +13,7 @@ require:
       identify
       make-struct
       proxy, read-proxy, write-proxy
-      directory, Directory
+      Directory
       changed-relevantly, intersect
       ID, FORKID, DIRECTORY
    "./people" ->

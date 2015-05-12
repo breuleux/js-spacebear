@@ -12,7 +12,7 @@ require:
    "../src/index" ->
       identify
       make-struct, read-proxy, write-proxy
-      directory, Directory
+      Directory
       changed-relevantly, intersect
       ID, FORKID
    "./people" ->

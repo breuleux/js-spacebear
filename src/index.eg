@@ -11,7 +11,7 @@ require:
    "./iter" ->
       iterate-properties
    "./directory" ->
-      Directory, directory
+      Directory
    "./relevant" ->
       intersect, changed-relevantly
 
@@ -21,7 +21,7 @@ provide:
    methods
    make-struct, struct
    proxy, read-proxy, write-proxy, deprox
-   Directory, directory
+   Directory
    iterate-properties
    changed-relevantly
    intersect

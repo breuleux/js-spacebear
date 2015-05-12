@@ -4,7 +4,7 @@ require:
       deprox
       read-proxy, write-proxy ;;, patch, fork
       iterate-properties
-      intersect, directory, Directory
+      intersect, Directory
    "./util" ->
       tuck, identify, fork-identify
       ID, FORKID, VERSION, DIRECTORY, CACHE
