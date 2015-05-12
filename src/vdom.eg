@@ -1,0 +1,164 @@
+
+require:
+   lodash -> flatten
+   "./util" ->
+      ID, CACHE, tuck, identify, fork-identify, methods
+   "./directory" ->
+      object-clobber-helper
+      array-clobber-helper
+   /browser ->
+      document, Element
+
+
+class VNode:
+
+   constructor{@tag, @props, flatten! @children, @options = {=}} =
+      {raw => @raw = false
+       namespace => @namespace = null} = @options
+      @dom-node = null
+
+   install{} =
+      if @dom-node:
+         return @dom-node
+
+      node =
+         if @namespace:
+            document.create-element-NS{@namespace, @tag}
+         else:
+            document.create-element{@tag}
+
+      items{@props} each {k, v} -> @set-attribute{k, v}
+
+      if @raw:
+         node.innerHTML = String{@raw}
+
+      @children-elements{} each c ->
+         node.append-child{c}
+
+      expr-value @dom-node = node
+
+   set-attribute{match attr, value} =
+      do:
+         if not @dom-node: return
+      .class or .class-name ->
+         @dom-node.class-name = value.join{" "}
+      .id or R"^on"? ->
+         @dom-node[attr] = value
+      else ->
+         @dom-node.set-attribute{attr, value}
+
+   children-elements{} =
+      @children each c -> @child-to-element{c}
+
+   child-to-element{match c} =
+      VNode? ->
+         c.install{}
+      Element? ->
+         c
+      else ->
+         document.create-text-node{String{c}}
+
+   [^methods.proxy]{tracks, patch, prevent-dirty-reads} =
+      throw E.not-implemented{"VNode instances cannot be proxied."}
+
+   [^methods.iterate-properties]{} =
+      id = self[ID]
+      gen-patch{k}{patch, new-v} =
+         patch[id] or= {=}
+         patch[id][k] = #update{new-v}
+
+      var results = {
+         {'raw/', @raw, gen-patch{'raw/'}}
+      }
+
+      results ++=
+         items{@props} each {k, value} ->
+            {k, value, gen-patch{k}} where
+               k = 'attribute/{k}'
+
+      results ++=
+         enumerate{@children} each {i, child} ->
+            {k, child, gen-patch{k}} where
+               k = 'child/{i}'
+
+      results
+
+   [^methods.fork]{dir} =
+      rval = VNode{
+         @tag
+         object with items{@props} each
+            {k, v} -> {k, dir.acquire{v}}
+         @children each c -> dir.acquire{c}
+         {raw = @raw and dir.acquire{@raw}
+          namespace = @namespace}
+      }
+      {ID, CACHE} each field ->
+         tuck{rval, field, self[field]}
+      fork-identify{rval}
+      dir.enter{rval, false}
+      rval
+
+   [^methods.patch]{patch, dir} =
+      patches = patch[self[ID]]
+
+      if not patches:
+         return
+
+      items{patches} each {match field, #update{new-value}} ->
+         "raw/" ->
+            @raw = dir.replace{@raw, new-value}
+            if @dom-node:
+               @dom-node.innerHTML = String{@raw}
+         R"^attribute/(.*)$"! {_, attr} ->
+            @props[attr] = dir.replace{@props[attr], new-value}
+            @set-attribute{attr, @props[attr]}
+         R"^child/(.*)$"! {_, Number! i} ->
+            @children[i] = dir.replace{@children[i], new-value}
+            if @dom-node:
+               @dom-node.replace-child{
+                  @child-to-element{@children[i]}
+                  @dom-node.child-nodes[i]
+               }
+
+   [^methods.clobber]{new-vdom, dir} =
+      if not VNode? new-vdom:
+         return dir.acquire{new-vdom}
+
+      ;; Cannot change tags
+      if new-vdom.tag !== @tag or new-vdom.namespace !== @namespace:
+         return dir.acquire{new-vdom}
+
+      dir.exit{@}
+
+      if @raw != new-vdom.raw:
+         @raw = dir.clobber{@raw, new-vdom.raw}
+         if @dom-node:
+            @dom-node.innerHTML = String{@raw}
+
+      object-clobber-helper{
+         @props, new-vdom.props, items
+         {a, b} -> Object.has-own-property.call{a, b}
+      } each
+         #delete{attr} ->
+            delete @props[attr]
+            if @dom-node:
+               @dom-node.remove-attribute{attr}
+         #put{attr, value} ->
+            @props[attr] = dir.clobber{@props[attr], value}
+            @set-attribute{attr, @props[attr]}
+
+      array-clobber-helper{@children, new-vdom.children} each
+         #splice{start, n, inserts} ->
+            acquired = inserts each
+               #keep{x} -> x
+               #acquire{x} -> dir.acquire{x}
+            @children.splice{start, n, *acquired}
+            if @dom-node:
+               acquired.reverse{} each c ->
+                  elem = @child-to-element{c}
+                  @dom-node.insert-child{start, c} ;; or whatever
+
+      dir.enter{@}
+      @
+
+
