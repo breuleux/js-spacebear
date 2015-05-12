@@ -17,6 +17,27 @@ intersect{tracks, patch, dir} =
 changed-relevantly{match value, reads, writes} =
    {changed-relevantly => Function?} ->
       value.changed-relevantly{reads, writes}
+   Array? a ->
+      match writes["@splice"]:
+         undefined? ->
+            false
+         splices ->
+            var mask = 3
+            taints = splices each
+               undefined? -> 3 &+ mask
+               {1, {_}} -> 1 &+ mask
+               else -> [mask = 0; 0]
+            items{reads} each
+               {"@iter", {i, j, stick}} ->
+                  if stick and taints[taints.length - 1] != 3:
+                     return true
+                  taints.slice{i, j} each
+                     3 -> pass
+                     else -> return true
+               {n, v} when v ->
+                  if taints[n] != 3:
+                     return true
+      false
    else ->
       items{writes or {=}} each
          {name, _} when reads[name] ->
