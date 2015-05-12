@@ -1,7 +1,9 @@
 
 require:
    "./util" ->
-      tuck, identify, next-id, ID, FORKID, VERSION, SOURCE, DIRECTORY
+      tuck, identify, next-id
+      ID, FORKID, PROTOID
+      VERSION, SOURCE, DIRECTORY
 
 provide:
    deprox, proxy, object-proxy, read-proxy, write-proxy
@@ -15,23 +17,14 @@ deprox{x} =
 
 
 proxy{match value, tracks, patch, prevent-dirty-reads = true} =
-
    null? or undefined? or Number? or String? or Symbol? or Boolean? ->
       value
-
    {proxy => Function?} ->
       deprox{value}.proxy{tracks, patch, prevent-dirty-reads}
-
    Array? ->
       array-proxy{deprox{value}, tracks, patch, prevent-dirty-reads}
-      ;; throw E.spacebear.proxy with
-      ;;    'Cannot proxy arrays. Wrap with spacebear.Array.'
-
    else ->
       object-proxy{deprox{value}, tracks, patch, prevent-dirty-reads}
-      ;; throw E.spacebear.proxy with
-      ;;    '''Cannot proxy '{value}'. Try defining a .proxy method.'''
-
 
 
 read-proxy{value, tracks} =
@@ -41,69 +34,149 @@ write-proxy{value, patch} =
    proxy{value, null, patch}
 
 
+basic-object-proxy{obj, tracks, patch
+                   prevent-dirty-reads = true} =
 
-object-proxy{obj, tracks, patch, var prevent-dirty-reads = true} =
-   frz = Object.is-frozen{obj}
-   if not frz:
-      identify{obj}
+   [@] = this
+   @_obj = obj
+   @_tracks = tracks
+   @_patch = patch
+   @_prevent-dirty-reads = prevent-dirty-reads
+
+   identify{obj}
 
    if tracks: tracks[DIRECTORY] or= obj[DIRECTORY]
    if patch:  patch[DIRECTORY]  or= obj[DIRECTORY]
 
    id = obj[ID]
-   obj-tracks = tracks and id and [tracks[id] or= {=}]
-   ;; if obj-tracks:
-   ;;    tuck{obj-tracks, SOURCE, obj}
+   @_obj-tracks = tracks and id and [tracks[id] or= {=}]
+   @_obj-patch = patch and id and [patch[id] or= {=}]
+   if not @_obj-patch:
+      @_prevent-dirty-reads = false
 
-   obj-patch = patch and id and [patch[id] or= {=}]
-   ;; if obj-patch:
-   ;;    tuck{obj-patch, SOURCE, obj}
-   ;; else:
-   if not obj-patch:
-      prevent-dirty-reads = false
+   tuck{@, SOURCE, obj}
+   tuck{@, ID, obj[ID]}
+   tuck{@, VERSION, obj[VERSION]}
 
-   getfn{name}{} =
-      if prevent-dirty-reads and obj-patch[name]:
-         throw E.invalid_access with
-            '''Cannot access property '{name}' after setting it.'''
-      if obj-tracks: obj-tracks[name] = true
-      proxy{obj[name], tracks, patch, prevent-dirty-reads}
+   Object.prevent-extensions{@}
 
-   setfn{name} =
-      if obj-patch:
-         {new-value} ->
-            obj-patch[name] = #update{deprox{new-value}}
+basic-get{name} =
+   [@] = this
+   if @_prevent-dirty-reads and @_obj-patch[name]:
+      throw E.invalid_access with
+         '''Cannot access property '{name}' after setting it.'''
+   if @_obj-tracks: @_obj-tracks[name] = true
+   proxy{@_obj[name], @_tracks, @_patch, @_prevent-dirty-reads}
 
-   prox = Object.create{Object.get-prototype-of{obj}}
-   tuck{prox, SOURCE, obj}
-   tuck{prox, ID, obj[ID]}
-   tuck{prox, VERSION, obj[VERSION]}
-   keys{obj} each name ->
-      Object.define-property{prox, name} with {
-         .get = getfn{name}
-         .set = setfn{name}
-         enumerable = true
-      }
-   Object.prevent-extensions{prox}
-   prox
+basic-set{name, new-value} =
+   [@] = this
+   if @_obj-patch:
+      @_obj-patch[name] = #update{deprox{new-value}}
 
 
-array-proxy{obj and a, tracks, patch, var prevent-dirty-reads = true} =
+proxy-proto-cache = {=}
 
-   identify{obj}
+proxy-proto-for{obj} =
+   orig-proto = Object.get-prototype-of{obj}
+   pid = if{orig-proto, tuck{orig-proto, PROTOID, next-id{}}, null}
+   the-keys = keys{obj}.sort{}
+   key = '{pid}\x01{the-keys.join{"\x00"}}'
+   match proxy-proto-cache[key]:
+      undefined? ->
+         proto = Object.create{orig-proto}
+         the-keys each name ->
+            Object.define-property{proto, name} with {
+               get{} = this._get{name}
+               set{value} = this._set{name, value}
+               enumerable = true
+            }
+         proto._get = basic-get
+         proto._set = basic-set
+         expr-value proxy-proto-cache[key] = proto
+      proto ->
+         proto
 
-   id = obj[ID]
-   obj-tracks = tracks and id and [tracks[id] or= {=}]
-   if obj-tracks:
-      tuck{obj-tracks, SOURCE, obj}
+object-proxy{obj, tracks, patch, var prevent-dirty-reads = true} =
+   p = proxy-proto-for{obj}
+   basic-object-proxy.call{Object.create{p}, obj, tracks, patch, prevent-dirty-reads}
 
-   obj-patch = patch and id and [patch[id] or= {=}]
-   if obj-patch:
-      tuck{obj-patch, SOURCE, obj}
-   else:
-      prevent-dirty-reads = false
 
-   update-iter{match, i, j, stick-to-end = false} =
+;; _object-proxy{obj, tracks, patch, var prevent-dirty-reads = true} =
+
+;;    ;; frz = Object.is-frozen{obj}
+;;    ;; if not frz:
+
+;;    identify{obj}
+
+;;    if tracks: tracks[DIRECTORY] or= obj[DIRECTORY]
+;;    if patch:  patch[DIRECTORY]  or= obj[DIRECTORY]
+
+;;    id = obj[ID]
+;;    obj-tracks = tracks and id and [tracks[id] or= {=}]
+;;    ;; if obj-tracks:
+;;    ;;    tuck{obj-tracks, SOURCE, obj}
+
+;;    obj-patch = patch and id and [patch[id] or= {=}]
+;;    ;; if obj-patch:
+;;    ;;    tuck{obj-patch, SOURCE, obj}
+;;    ;; else:
+;;    if not obj-patch:
+;;       prevent-dirty-reads = false
+
+;;    getfn{name}{} =
+;;       if prevent-dirty-reads and obj-patch[name]:
+;;          throw E.invalid_access with
+;;             '''Cannot access property '{name}' after setting it.'''
+;;       if obj-tracks: obj-tracks[name] = true
+;;       proxy{obj[name], tracks, patch, prevent-dirty-reads}
+
+;;    setfn{name} =
+;;       if obj-patch:
+;;          {new-value} ->
+;;             obj-patch[name] = #update{deprox{new-value}}
+
+;;    prox = Object.create{Object.get-prototype-of{obj}}
+;;    tuck{prox, SOURCE, obj}
+;;    tuck{prox, ID, obj[ID]}
+;;    tuck{prox, VERSION, obj[VERSION]}
+;;    keys{obj} each name ->
+;;       Object.define-property{prox, name} with {
+;;          .get = getfn{name}
+;;          .set = setfn{name}
+;;          enumerable = true
+;;       }
+;;    Object.prevent-extensions{prox}
+;;    prox
+
+
+class array-proxy:
+
+   constructor{obj and @_a
+               tracks and @_tracks
+               patch and @_patch
+               @_prevent-dirty-reads = true} =
+
+      identify{obj}
+      if tracks: tracks[DIRECTORY] or= obj[DIRECTORY]
+      if patch:  patch[DIRECTORY]  or= obj[DIRECTORY]
+
+      id = obj[ID]
+      @_obj-tracks = tracks and id and [tracks[id] or= {=}]
+      if @_obj-tracks:
+         tuck{@_obj-tracks, SOURCE, obj}
+
+      @_obj-patch = patch and id and [patch[id] or= {=}]
+      if @_obj-patch:
+         tuck{@_obj-patch, SOURCE, obj}
+      else:
+         @_prevent-dirty-reads = false
+
+      tuck{@, SOURCE, obj}
+
+      ;; @_proxies = @_a each x ->
+      ;;    proxy{x, @_tracks, @_patch, @_prevent-dirty-reads}
+
+   _update-iter{match, i, j, stick-to-end = false} =
       undefined? ->
          {i, j, stick-to-end}
       {i2, j2} ->
@@ -111,99 +184,217 @@ array-proxy{obj and a, tracks, patch, var prevent-dirty-reads = true} =
       else ->
          {i, j, stick-to-end}
 
-   prox = Object.create{Object.create{Array.prototype} &: [getters & setters]} where
+   ;; GETTERS
 
-      getters = {
-         .get{i} =
-            if prevent-dirty-reads and obj-patch[i]:
-               throw E.invalid_access with
-                  '''Cannot access index '{i}' after setting it.'''
-            if obj-tracks: obj-tracks[i] = true
-            proxy{a[i], tracks, patch, prevent-dirty-reads}
-         slice{i = 0, var j = null} =
-            stick = if{j === null, [j = a.length; true], false}
-            if obj-tracks:
-               obj-tracks["@iter"] = update-iter{obj-tracks["@iter"], i, j, stick}
-            obj.slice{i, j} each* x ->
-               proxy{x, tracks, patch, prevent-dirty-reads}
-         ^Symbol.iterator = {} ->
-            proxies = obj each x -> proxy{x, tracks, patch, prevent-dirty-reads}
-            if obj-tracks: obj-tracks["@iter"] = {0, a.length, true}
-            proxies[Symbol.iterator]{}
-         for-each{fn} =
-            this each x -> fn{x}
-            undefined
-         map{fn} =
-            this each x -> fn{x}
-         join{sep} =
-            self = this
-            [self each x -> x].join{sep}
-         to-string{} =
-            '\{{this.join{", "}}\}'
-      }
+   get{i} =
+      if @_prevent-dirty-reads and @_obj-patch[i]:
+         throw E.invalid_access with
+            '''Cannot access index '{i}' after setting it.'''
+      if @_obj-tracks: @_obj-tracks[i] = true
+      proxy{@_a[i], @_tracks, @_patch, @_prevent-dirty-reads}
+      ;; @_proxies[i]
 
-      setters =
-         if obj-patch: {
-            .set{i, new-value} =
-               this._splice{i, 1, {new-value}, false}
+   slice{i = 0, var j = null} =
+      stick = if{j === null, [j = @_a.length; true], false}
+      if @_obj-tracks:
+         @_obj-tracks["@iter"] = @_update-iter{@_obj-tracks["@iter"], i, j, stick}
+      @_a.slice{i, j} each* x ->
+         proxy{x, @_tracks, @_patch, @_prevent-dirty-reads}
+      ;; @_proxies.slice{i, j} each* x -> x
 
-            pop{n = 1} =
-               this._splice{a.length - n, n, {}, false}
-            push{*values} =
-               this._splice{a.length, 0, values, .append}
+   [^Symbol.iterator]{} =
+      proxies = @_a each x -> proxy{x, @_tracks, @_patch, @_prevent-dirty-reads}
+      if @_obj-tracks: @_obj-tracks["@iter"] = {0, @_a.length, true}
+      proxies[Symbol.iterator]{}
+      ;; @_proxies[Symbol.iterator]{}
 
-            shift{n = 1} =
-               this._splice{0, n, {}, false}
-            unshift{*values} =
-               this._splice{0, 0, values, .prepend}
+   for-each{fn} =
+      [@] each x -> fn{x}
+      undefined
 
-            .splice{i, n, *values} =
-               this._splice{i, n, values, false}
+   map{fn} =
+      [@] each x -> fn{x}
 
-            replace{new-array} =
-               this._splice{0, a.length, new-array, false}
+   join{sep} =
+      [[@] each x -> x].join{sep}
 
-            ._splice{i, n, values, pos = false} =
-               emsg = 'Inconsistent splicing (this may happen if you modify'
-                  \ + ' the array more than once at the same place)'
-               d = [obj-patch["@splice"] or= Array{a.length + 1}]
-               match d[i]:
-                  === true ->
-                     throw E.splice{emsg}
-                  undefined? ->
-                     d[i] = {n, values}
-                  {n2, previous-values} when n == 0 or n2 == 0 ->
-                     d[i] = {Math.max{n, n2}, new-values} where new-values =
-                        match pos:
-                           .prepend -> values ++ previous-values
-                           .append -> previous-values ++ values
-                           else -> throw E.splice{emsg}
-                  else ->
-                     throw E.splice{emsg}
-               1..[n - 1] each j ->
-                  match d[i + j]:
-                     undefined? ->
-                        d[i + j] = true
-                     else ->
-                        throw E.splice{emsg}
-         }
+   to-string{} =
+      '\{{@join{", "}}\}'
 
-         else: {
-            _splice{} =
-               throw E.immutable{'''Cannot modify {obj}'''}
-         }
+   ;; SETTERS
 
-   Object.define-property{prox, .length} with {
-      .get{} =
-         if prevent-dirty-reads and obj-patch[.length]:
-            throw E.invalid_access with
-               '''Array length has changed.'''
-         if obj-tracks: obj-tracks[.length] = true
-         proxy{obj[.length], tracks, patch, prevent-dirty-reads}
-   }
+   set{i, new-value} =
+      @_splice{i, 1, {new-value}, false}
 
-   prox
+   pop{n = 1} =
+      @_splice{@_a.length - n, n, {}, false}
+   push{*values} =
+      @_splice{@_a.length, 0, values, .append}
+
+   shift{n = 1} =
+      @_splice{0, n, {}, false}
+   unshift{*values} =
+      @_splice{0, 0, values, .prepend}
+
+   .splice{i, n, *values} =
+      @_splice{i, n, values, false}
+
+   replace{new-array} =
+      @_splice{0, @_a.length, new-array, false}
+
+   ._splice{i, n, values, pos = false} =
+      emsg = 'Inconsistent splicing (this may happen if you modify'
+         \ + ' the array more than once at the same place)'
+      d = [@_obj-patch["@splice"] or= Array{@_a.length + 1}]
+      match d[i]:
+         === true ->
+            throw E.splice{emsg}
+         undefined? ->
+            d[i] = {n, values}
+         {n2, previous-values} when n == 0 or n2 == 0 ->
+            d[i] = {Math.max{n, n2}, new-values} where new-values =
+               match pos:
+                  .prepend -> values ++ previous-values
+                  .append -> previous-values ++ values
+                  else -> throw E.splice{emsg}
+         else ->
+            throw E.splice{emsg}
+      1..[n - 1] each j ->
+         match d[i + j]:
+            undefined? ->
+               d[i + j] = true
+            else ->
+               throw E.splice{emsg}
+
+Object.define-property{array-proxy.prototype, .length} with {
+   .get{} =
+      if this._prevent-dirty-reads and this._obj-patch[.length]:
+         throw E.invalid_access with
+            '''Array length has changed.'''
+      if this._obj-tracks: this._obj-tracks[.length] = true
+      proxy{this._a.length, this._tracks, this._patch, this._prevent-dirty-reads}
+}
 
 
 
+;; __array-proxy{obj and a, tracks, patch, var prevent-dirty-reads = true} =
+
+;;    identify{obj}
+
+;;    if tracks: tracks[DIRECTORY] or= obj[DIRECTORY]
+;;    if patch:  patch[DIRECTORY]  or= obj[DIRECTORY]
+
+;;    id = obj[ID]
+;;    obj-tracks = tracks and id and [tracks[id] or= {=}]
+;;    if obj-tracks:
+;;       tuck{obj-tracks, SOURCE, obj}
+
+;;    obj-patch = patch and id and [patch[id] or= {=}]
+;;    if obj-patch:
+;;       tuck{obj-patch, SOURCE, obj}
+;;    else:
+;;       prevent-dirty-reads = false
+
+;;    update-iter{match, i, j, stick-to-end = false} =
+;;       undefined? ->
+;;          {i, j, stick-to-end}
+;;       {i2, j2} ->
+;;          {Math.min{i, i2}, Math.max{j, j2}, stick-to-end}
+;;       else ->
+;;          {i, j, stick-to-end}
+
+;;    prox = Object.create{Object.create{null} &: [getters & setters]} where
+
+;;       getters = {
+;;          .get{i} =
+;;             if prevent-dirty-reads and obj-patch[i]:
+;;                throw E.invalid_access with
+;;                   '''Cannot access index '{i}' after setting it.'''
+;;             if obj-tracks: obj-tracks[i] = true
+;;             proxy{a[i], tracks, patch, prevent-dirty-reads}
+;;          slice{i = 0, var j = null} =
+;;             stick = if{j === null, [j = a.length; true], false}
+;;             if obj-tracks:
+;;                obj-tracks["@iter"] = update-iter{obj-tracks["@iter"], i, j, stick}
+;;             obj.slice{i, j} each* x ->
+;;                proxy{x, tracks, patch, prevent-dirty-reads}
+;;          ^Symbol.iterator = {} ->
+;;             proxies = obj each x -> proxy{x, tracks, patch, prevent-dirty-reads}
+;;             if obj-tracks: obj-tracks["@iter"] = {0, a.length, true}
+;;             proxies[Symbol.iterator]{}
+;;          for-each{fn} =
+;;             this each x -> fn{x}
+;;             undefined
+;;          map{fn} =
+;;             this each x -> fn{x}
+;;          join{sep} =
+;;             self = this
+;;             [self each x -> x].join{sep}
+;;          to-string{} =
+;;             '\{{this.join{", "}}\}'
+;;       }
+
+;;       setters =
+;;          if obj-patch: {
+;;             .set{i, new-value} =
+;;                this._splice{i, 1, {new-value}, false}
+
+;;             pop{n = 1} =
+;;                this._splice{a.length - n, n, {}, false}
+;;             push{*values} =
+;;                this._splice{a.length, 0, values, .append}
+
+;;             shift{n = 1} =
+;;                this._splice{0, n, {}, false}
+;;             unshift{*values} =
+;;                this._splice{0, 0, values, .prepend}
+
+;;             .splice{i, n, *values} =
+;;                this._splice{i, n, values, false}
+
+;;             replace{new-array} =
+;;                this._splice{0, a.length, new-array, false}
+
+;;             ._splice{i, n, values, pos = false} =
+;;                emsg = 'Inconsistent splicing (this may happen if you modify'
+;;                   \ + ' the array more than once at the same place)'
+;;                d = [obj-patch["@splice"] or= Array{a.length + 1}]
+;;                match d[i]:
+;;                   === true ->
+;;                      throw E.splice{emsg}
+;;                   undefined? ->
+;;                      d[i] = {n, values}
+;;                   {n2, previous-values} when n == 0 or n2 == 0 ->
+;;                      d[i] = {Math.max{n, n2}, new-values} where new-values =
+;;                         match pos:
+;;                            .prepend -> values ++ previous-values
+;;                            .append -> previous-values ++ values
+;;                            else -> throw E.splice{emsg}
+;;                   else ->
+;;                      throw E.splice{emsg}
+;;                1..[n - 1] each j ->
+;;                   match d[i + j]:
+;;                      undefined? ->
+;;                         d[i + j] = true
+;;                      else ->
+;;                         throw E.splice{emsg}
+;;          }
+
+;;          else: {
+;;             _splice{} =
+;;                throw E.immutable{'''Cannot modify {obj}'''}
+;;          }
+
+;;    Object.define-property{prox, .length} with {
+;;       .get{} =
+;;          if prevent-dirty-reads and obj-patch[.length]:
+;;             throw E.invalid_access with
+;;                '''Array length has changed.'''
+;;          if obj-tracks: obj-tracks[.length] = true
+;;          proxy{obj[.length], tracks, patch, prevent-dirty-reads}
+;;    }
+
+;;    tuck{prox, SOURCE, obj}
+
+;;    prox
 

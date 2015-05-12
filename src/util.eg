@@ -1,7 +1,7 @@
 
 provide:
    tuck
-   ID, CLOBBERID, FORKID, VERSION, SOURCE, DIRECTORY, CACHE
+   ID, CLOBBERID, FORKID, PROTOID, VERSION, SOURCE, DIRECTORY, CACHE
    next-id, identify, fork-identify
    longest-run
 
@@ -15,6 +15,7 @@ tuck{obj, name, value, writable = true} =
 
 ID = Symbol{.id}
 FORKID = Symbol{.forkid}
+PROTOID = Symbol{.protoid}
 VERSION = Symbol{.version}
 SOURCE = Symbol{.source}
 CLOBBERID = Symbol{.clobberid}
