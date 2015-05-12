@@ -510,5 +510,22 @@ describe "directory":
             @clobber{{alice, bob, clara, clara, donald, emily}
                      {bob, emily, clara, francis, clara, gerard}, false}
 
+         it "clobber elements that are not in the array anymore":
+            {{a, b}, {c, d}} =
+               @clobber{{alice, bob}, {clara, donald}}
+            assert a === c
+            assert b === d
+
+         it "clobber elements that are not in the array anymore (2)":
+            {{a, b, c, h}, {a2, d, c2, h2}} =
+               @clobber{{alice, bob, clara, helen}, {alice, donald, clara, helen}}
+            assert b === d
+
+         it "do not clobber elements that are still in the array":
+            {{a, b}, {c, d, a2}} =
+               @clobber{{alice, bob}, {clara, donald, alice}}
+            assert a === a2
+            assert a !== c
+
 
 
