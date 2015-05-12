@@ -34,41 +34,33 @@ This is how I envision a simple todo application will look like (this
 is written in the Earl Grey language):
 
     require-macros:
-       spacebear ->
-          struct, reactive, transact
+       spacebear -> (reactive, transact)
     
     require:
-       spacebear ->
-          Array, System, %
+       spacebear -> (System, %)
     
-    struct Todo: [done, description]
-    struct Todos: [entries, current]
-
-    reactive render-todo{todo} =
+    reactive render-todo(todo) =
        li % todo.description
 
-    reactive render-form{entries, todo} =
+    reactive render-form(entries, todo) =
        form %
           input %
              value = todo.description
-             on-change{e} =
+             on-change(e) =
                 transact todo: todo.description = e.target.value
           button % 'Add #{entries.length}'
-          on-submit{} =
+          on-submit() =
              transact {entries, todo}:
-                entries.push{Todo{done = false, description = todo.description}}
+                entries.push with {done = false, description = todo.description}
                 todo.description = ""
     
-    reactive render-todos{todos} =
+    reactive render-todos(todos) =
        div %
-          ul % todos.entries each todo -> render-todo{todo}
-          render-form{todos.entries, todos.current}
-    
-    init = Todos{
-       entries = Array{}
-       current = Todo{done = false, description = ""}
-    }
-    System{init, render-todos}.render-to{document.get-element-by-id{"target"}}
+          ul % todos.entries each todo -> render-todo(todo)
+          render-form(todos.entries, todos.current)
+
+    init = {entries = {}, current = {done = false, description = ""}}
+    System(init, render-todos).render-to(document.get-element-by-id("target"))
 
 
 
