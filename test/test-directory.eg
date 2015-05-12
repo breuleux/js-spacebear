@@ -358,6 +358,26 @@ describe "directory":
 
    describe "array":
 
+      describe "patch":
+
+         before-each:
+            @patch = {=}
+            @arr = @dir.acquire with {1, 2, 3}
+            @p = write-proxy{@arr, @patch}
+            @id = @arr[ID]
+
+         it "set/push":
+            @p.set{0, 11}
+            @p.push{44}
+            @dir.patch{@patch}
+            assert @arr == {11, 2, 3, 44}
+
+         it "unshift":
+            @p.unshift{999}
+            @dir.patch{@patch}
+            assert @arr == {999, 1, 2, 3}
+
+
       describe "clobber":
 
          before-each:
@@ -411,5 +431,6 @@ describe "directory":
          it "misc 2":
             @clobber{{alice, bob, clara, clara, donald, emily}
                      {bob, emily, clara, francis, clara, gerard}, false}
+
 
 

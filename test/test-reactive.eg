@@ -10,11 +10,9 @@ require-macros:
 
 require:
    "../src/index" ->
-      make-struct, read-proxy, Directory, ID
+      deprox, make-struct, read-proxy, write-proxy, Directory, ID
    "../src/reactive" ->
       Reactive, reactive-function, System
-   ;; "../src/array" ->
-   ;;    SBArray, A
    "./people" ->
       alice, bob, clara, donald, emily, francis, gerard, helen
       aid, bid, cid, did, eid, fid, gid, hid
@@ -27,6 +25,9 @@ count-calls{f} =
    rval.count = 0
    rval
 
+predicate! ArrayProx{p} =
+   Array? deprox{p}
+
 
 describe "utilities":
 
@@ -37,19 +38,27 @@ describe "utilities":
       assert f{7, 8} == 15
       assert f.count == 2
 
+   it "ArrayProx predicate":
+      p1 = write-proxy{{1, 2, 3}, {=}}
+      assert [ArrayProx? p1]
+      p2 = read-proxy{{1, 2, 3}, {=}}
+      assert [ArrayProx? p2]
+      p3 = write-proxy{{a = 1, b = 2}, {=}}
+      assert not [ArrayProx? p3]
+      assert [ArrayProx? {1, 2, 3}]
+
 
 describe "Reactive functions":
 
    before-each:
 
       count-calls! reactive-function! @say-name{person} =
-         ;; print person.name
          {greeting = 'Hello, my name is {person.name}!'}
 
-      ;; count-calls! reactive-function! @say-names{people} =
-      ;;    rval = SBArray{people each person -> 'Hello, my name is {person.name}!'}
-      ;;    rval
-      ;;    people each person -> 'Hello, my name is {person.name}!'
+      count-calls! reactive-function! @say-names{people} =
+         people each
+            ArrayProx? subp -> @say-names{subp}
+            person -> 'Hello, my name is {person.name}!'
 
       count-calls! reactive-function! @say-parent-names{person} =
          {mother = @say-name{person.mother}
@@ -170,6 +179,53 @@ describe "Reactive functions":
          father = {greeting = 'Hello, my name is alice!'}
       }
 
+   describe "on arrays":
+
+      before-each:
+         @people = {alice, bob, clara}
+         @sys = System{@people, @say-names}
+
+      it "basic":
+         assert @sys.get{} == {
+            'Hello, my name is alice!'
+            'Hello, my name is bob!'
+            'Hello, my name is clara!'
+         }
+         @sys.transact with {people} ->
+            people.get{0}.name = .albert
+
+         assert @sys.get{} == {
+            'Hello, my name is albert!'
+            'Hello, my name is bob!'
+            'Hello, my name is clara!'
+         }
+
+         @sys.transact with {people} ->
+            people.set{0, donald}
+         assert @sys.get{} == {
+            'Hello, my name is donald!'
+            'Hello, my name is bob!'
+            'Hello, my name is clara!'
+         }
+
+      it "modify with each":
+         @sys.transact with {people} ->
+            people each person -> person.name += "o"
+         assert @sys.get{} == {
+            'Hello, my name is aliceo!'
+            'Hello, my name is bobo!'
+            'Hello, my name is clarao!'
+         }
+
+      it "push value":
+         @sys.transact with {people} ->
+            people.push with donald
+         assert @sys.get{} == {
+            'Hello, my name is alice!'
+            'Hello, my name is bob!'
+            'Hello, my name is clara!'
+            'Hello, my name is donald!'
+         }
 
    describe "miscellaneous tests":
 
@@ -226,53 +282,114 @@ describe "Reactive functions":
             father = {greeting = 'Hello, my name is dumbledore!'}
          }
 
+      it "megatest":
+
+         people = {{alice}, clara, {bob, emily}}
+         sys = System{people, @say-names}
+
+         assert sys.get{} == {
+            {'Hello, my name is alice!'}
+            'Hello, my name is clara!'
+            {'Hello, my name is bob!'
+             'Hello, my name is emily!'}
+         }
+         assert @say-names.orig.count == 3
+
+         sys.transact with {people} ->
+            people.get{1}.name = "clairette"
+            people.push with {francis, gerard}
+
+         assert sys.get{} == {
+            {'Hello, my name is alice!'}
+            'Hello, my name is clairette!'
+            {'Hello, my name is bob!'
+             'Hello, my name is emily!'}
+            {'Hello, my name is francis!'
+             'Hello, my name is gerard!'}
+         }
+         assert @say-names.orig.count == 5
+
+         sys.transact with {people} ->
+            people.get{2}.splice{1, 0, helen}
+
+         assert sys.get{} == {
+            {'Hello, my name is alice!'}
+            'Hello, my name is clairette!'
+            {'Hello, my name is bob!'
+             'Hello, my name is helen!'
+             'Hello, my name is emily!'}
+            {'Hello, my name is francis!'
+             'Hello, my name is gerard!'}
+         }
+         assert @say-names.orig.count == 6
+
+         sys.transact with {people} ->
+            helper{people} where helper{each match} =
+               ArrayProx? subp -> helper{subp}
+               person -> person.name += "-tron"
+
+         assert sys.get{} == {
+            {'Hello, my name is alice-tron!'}
+            'Hello, my name is clairette-tron!'
+            {'Hello, my name is bob-tron!'
+             'Hello, my name is helen-tron!'
+             'Hello, my name is emily-tron!'}
+            {'Hello, my name is francis-tron!'
+             'Hello, my name is gerard-tron!'}
+         }
+         assert @say-names.orig.count == 10
+
+         sys.transact with {people} ->
+            helper{people.get{2}} where helper{each match} =
+               ArrayProx? subp -> helper{subp}
+               person -> person.name += "-mega"
+
+         assert sys.get{} == {
+            {'Hello, my name is alice-tron!'}
+            'Hello, my name is clairette-tron!'
+            {'Hello, my name is bob-tron-mega!'
+             'Hello, my name is helen-tron-mega!'
+             'Hello, my name is emily-tron-mega!'}
+            {'Hello, my name is francis-tron!'
+             'Hello, my name is gerard-tron!'}
+         }
+         assert @say-names.orig.count == 11
+
+         ;; start = +[new Date{}]
+         ;; iters = 100
+         ;; 1..iters each i ->
+         ;;    sys.transact with {people} ->
+         ;;       helper{people} where helper{each match} =
+         ;;          ArrayProx? subp -> helper{subp}
+         ;;          person -> person.name += "-tron"
+         ;; end = +[new Date{}]
+         ;; print [end - start] / iters
+
+      it "redundancies":
+
+         people = {{alice}, bob, {bob, clara, bob}, donald}
+         sys = System{people, @say-names}
+
+         assert sys.get{} == {
+            {'Hello, my name is alice!'}
+            'Hello, my name is bob!'
+            {'Hello, my name is bob!'
+             'Hello, my name is clara!'
+             'Hello, my name is bob!'}
+            'Hello, my name is donald!'
+         }
+         assert @say-names.orig.count == 3
 
 
+         sys.transact with {people} ->
+            people.get{1}.name = "banana"
 
-
-;;    describe "on SBArray":
-
-;;       before-each:
-;;          @people = A{alice, bob, clara}
-;;          @sys = System{@people, @say-names}
-
-;;       it "basic":
-;;          assert @sys.value == {
-;;             'Hello, my name is alice!'
-;;             'Hello, my name is bob!'
-;;             'Hello, my name is clara!'
-;;          }
-;;          @sys.transact with {people} ->
-;;             people.get{0}.name = .albert
-;;          assert @sys.value == {
-;;             'Hello, my name is albert!'
-;;             'Hello, my name is bob!'
-;;             'Hello, my name is clara!'
-;;          }
-;;          @sys.transact with {people} ->
-;;             people.set{0, donald}
-;;          assert @sys.value == {
-;;             'Hello, my name is donald!'
-;;             'Hello, my name is bob!'
-;;             'Hello, my name is clara!'
-;;          }
-
-;;       it "modify with each":
-;;          @sys.transact with {people} ->
-;;             people each person -> person.name += "o"
-;;          assert @sys.value == {
-;;             'Hello, my name is aliceo!'
-;;             'Hello, my name is bobo!'
-;;             'Hello, my name is clarao!'
-;;          }
-
-;;       it "push value":
-;;          @sys.transact with {people} ->
-;;             people.push with fork{donald}
-;;          assert @sys.value == {
-;;             'Hello, my name is alice!'
-;;             'Hello, my name is bob!'
-;;             'Hello, my name is clara!'
-;;             'Hello, my name is donald!'
-;;          }
-
+         assert sys.get{} == {
+            {'Hello, my name is alice!'}
+            'Hello, my name is banana!'
+            {'Hello, my name is banana!'
+             'Hello, my name is clara!'
+             'Hello, my name is banana!'}
+            'Hello, my name is donald!'
+         }
+         assert @say-names.orig.count == 5

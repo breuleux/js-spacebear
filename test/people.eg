@@ -4,6 +4,7 @@ require:
       Directory, ID
 
 provide:
+   static-dir
    alice, bob, clara, donald, emily, francis, gerard, helen
    aid, bid, cid, did, eid, fid, gid, hid
 
