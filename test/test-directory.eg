@@ -11,7 +11,8 @@ require-macros:
 require:
    "../src/index" ->
       identify
-      make-struct, read-proxy, write-proxy
+      make-struct
+      proxy, read-proxy, write-proxy
       directory, Directory
       changed-relevantly, intersect
       ID, FORKID, DIRECTORY
@@ -358,7 +359,7 @@ describe "directory":
 
    describe "array":
 
-      describe "patch":
+      describe "patch (shallow)":
 
          before-each:
             @patch = {=}
@@ -377,6 +378,33 @@ describe "directory":
             @dir.patch{@patch}
             assert @arr == {999, 1, 2, 3}
 
+         it "splice":
+            @p.splice{1, 0, 11, 22, 33, 44}
+            @p.splice{2, 0, 88, 99}
+            @dir.patch{@patch}
+            assert @arr == {1, 11, 22, 33, 44, 2, 88, 99, 3}
+
+         it "misc":
+            @p.unshift{11}
+            @p.push{22}
+            @p.splice{1, 2}
+            @dir.patch{@patch}
+            assert @arr == {11, 1, 22}
+
+      describe "patch (deep)":
+         before-each:
+            identify! @a = {1, 2, 3}
+            identify! @b = {4, 5, 6}
+            identify! @c = @dir.acquire with {@a, @b}
+            @tracks = {=}
+            @patch = {=}
+            @p = proxy{@c, @tracks, @patch}
+
+         it "test":
+            @p.get{0}.push{44}
+            @p.get{1}.unshift{33}
+            @dir.patch{@patch}
+            assert @c == {{1, 2, 3, 44}, {33, 4, 5, 6}}
 
       describe "clobber":
 
