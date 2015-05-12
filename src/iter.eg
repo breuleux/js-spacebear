@@ -1,7 +1,7 @@
 
 require:
    "./util" ->
-      ID
+      ID, methods
    "./proxy" ->
       deprox
 
@@ -20,8 +20,8 @@ iterate-properties{match obj} =
       throw E.spacebear.patch with
          'Cannot iterate frozen objects.'
 
-   {iterate-properties => Function?} ->
-      deprox{obj}.iterate-properties{}
+   {^methods.iterate-properties => Function?} ->
+      deprox{obj}[methods.iterate-properties]{}
 
    Array? arr ->
       array-iterate-properties{deprox{arr}}

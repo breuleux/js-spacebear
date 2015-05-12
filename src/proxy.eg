@@ -4,6 +4,7 @@ require:
       tuck, identify, next-id
       ID, FORKID, PROTOID
       VERSION, SOURCE, DIRECTORY
+      methods
 
 provide:
    deprox, proxy, object-proxy, read-proxy, write-proxy
@@ -19,8 +20,8 @@ deprox{x} =
 proxy{match value, tracks, patch, prevent-dirty-reads = true} =
    null? or undefined? or Number? or String? or Symbol? or Boolean? ->
       value
-   {proxy => Function?} ->
-      deprox{value}.proxy{tracks, patch, prevent-dirty-reads}
+   {^methods.proxy => Function?} ->
+      deprox{value}[methods.proxy]{tracks, patch, prevent-dirty-reads}
    Array? ->
       array-proxy{deprox{value}, tracks, patch, prevent-dirty-reads}
    else ->

@@ -2,6 +2,7 @@
 provide:
    tuck
    ID, CLOBBERID, FORKID, PROTOID, VERSION, SOURCE, DIRECTORY, CACHE
+   methods
    next-id, identify, fork-identify
    longest-run
 
@@ -21,6 +22,14 @@ SOURCE = Symbol{.source}
 CLOBBERID = Symbol{.clobberid}
 DIRECTORY = Symbol{.directory}
 CACHE = Symbol{.cache}
+
+methods = {
+   proxy = Symbol{.proxy}
+   iterate-properties = Symbol{.iterate-properties}
+   fork = Symbol{.fork}
+   patch = Symbol{.patch}
+   clobber = Symbol{.clobber}
+}
 
 var _id = 0
 

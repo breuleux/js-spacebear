@@ -3,6 +3,7 @@ require:
    "./util" ->
       identify, fork-identify, tuck
       next-id, ID, FORKID, VERSION, DIRECTORY, CACHE
+      methods
       longest-run
    "./proxy" ->
       deprox
@@ -131,9 +132,9 @@ class Directory:
          value
       when not @duplicate and @get{value[ID]} ->
          @get{value[ID]}
-      {fork => Function?} ->
+      {^methods.fork => Function?} ->
          throw E.not-implemented{}
-         deprox{value}.fork{@}
+         deprox{value}[methods.fork]{@}
       Array? ->
          array-fork{deprox{value}, @}
       else ->
@@ -144,8 +145,8 @@ class Directory:
          new-value
       when value[ID] === new-value[ID] ->
          value
-      {clobber => Function?} ->
-         deprox{value}.clobber{new-value, @}
+      {^methods.clobber => Function?} ->
+         deprox{value}[methods.clobber]{new-value, @}
       Array? ->
          array-clobber{deprox{value}, new-value, @}
       else ->
@@ -207,8 +208,8 @@ directory{v, dir = Directory{}} =
 patch-shallow{deprox! match value, p, dir} =
    null? or undefined? or Number? or String? or Symbol? or Boolean? ->
       pass
-   {patch => Function?} ->
-      deprox{value}.patch{p, dir}
+   {^methods.patch => Function?} ->
+      deprox{value}[methods.patch]{p, dir}
    Array? arr ->
       array-patch{arr, p, dir}
    obj ->
