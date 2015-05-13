@@ -158,6 +158,16 @@ class VNode:
             @set-attribute{attr, @props[attr]}
 
       array-clobber-helper{@children, new-vdom.children} each
+
+         #clobber{i, value} ->
+            old-child = @children[i]
+            new-child and @children[i] = dir.clobber{old, value}
+            if @dom-node and old-child !== new-child:
+               @dom-node.replace-child{
+                  @child-to-element{new-child}
+                  @child-to-element{old-child}
+               }
+
          #splice{start, n, inserts} ->
             acquired = inserts each
                #keep{x} -> x
@@ -171,7 +181,7 @@ class VNode:
                      @child-to-element{@children{start}}
                acquired each c ->
                   elem = @child-to-element{c}
-                  @dom-node.insert-before{c, anchor}
+                  @dom-node.insert-before{elem, anchor}
 
       dir.enter{@}
       @
