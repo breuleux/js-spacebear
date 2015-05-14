@@ -1,10 +1,14 @@
 
 require:
-   "./index" ->
+   "./proxy" ->
       deprox
-      read-proxy, write-proxy ;;, patch, fork
+      read-proxy, write-proxy
+   "./iter" ->
       iterate-properties
-      intersect, Directory
+   "./relevant" ->
+      intersect
+   "./directory" ->
+      Directory
    "./util" ->
       tuck, identify, fork-identify
       ID, FORKID, VERSION, DIRECTORY, CACHE

@@ -17,7 +17,9 @@ require:
    "./root" ->
       Root
    "./vdom" ->
-      VNode, ENode, [%]
+      VNode, ENode as EVNode
+   "./reactive" ->
+      System, reactive-function
 
 provide:
    identify, tuck
@@ -30,5 +32,9 @@ provide:
    changed-relevantly
    intersect
    Root
-   VNode, ENode, [%]
+   VNode, EVNode as ENode, percent as [%]
+   System, reactive-function
 
+macro{EVNode} percent{#data{x, y}} =
+   let {=> EVNode} = @deps
+   `[^x % ^y] where ENode = [^EVNode]`
