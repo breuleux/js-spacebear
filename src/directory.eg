@@ -76,7 +76,7 @@ class Directory:
       null? or undefined? or Number? or String? or Symbol? or Boolean? ->
          @
       deprox! v ->
-         {d, k} =
+         {d, String! k} =
             if @duplicate:
                sub = [@dir[v[ID]] or= {=}]
                {sub, v[FORKID]}
@@ -135,6 +135,8 @@ class Directory:
          @get{value[ID]}
       {^methods.fork => Function?} ->
          deprox{value}[methods.fork]{@}
+      Function? ->
+         value
       Array? ->
          array-fork{deprox{value}, @}
       else ->
@@ -147,6 +149,8 @@ class Directory:
          value
       {^methods.clobber => Function?} ->
          deprox{value}[methods.clobber]{new-value, @}
+      Function? ->
+         new-value
       Array? ->
          array-clobber{deprox{value}, new-value, @}
       else ->
