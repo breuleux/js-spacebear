@@ -65,7 +65,7 @@ class VNode:
          if not @dom-node: return
       .class or .class-name ->
          @dom-node.class-name = value.join{" "}
-      .id or R"^on"? ->
+      .id or .value or R"^on"? ->
          @dom-node[attr] = value
       else ->
          @dom-node.set-attribute{attr, value}
