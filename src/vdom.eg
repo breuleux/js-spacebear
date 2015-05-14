@@ -10,7 +10,6 @@ require:
 provide:
    VNode
    EVNode as ENode
-   percent as [%]
 
 globals:
    document, Element
@@ -19,6 +18,20 @@ globals:
 ;;;;;;;;;;;
 ;; VNode ;;
 ;;;;;;;;;;;
+
+child-at{node, i} =
+   node.child-nodes[i] or null
+
+remove-at-index{node, i} =
+   match child-at{node, i}:
+      undefined? -> pass
+      child -> node.remove-child{child}
+
+insert-at-index{node, i, elem} =
+   anchor = child-at{node, i}
+   if elem !== anchor:
+      node.insert-before{elem, anchor}
+
 
 class VNode:
 
@@ -31,7 +44,7 @@ class VNode:
       if @dom-node:
          return @dom-node
 
-      node =
+      node and @dom-node =
          if @namespace:
             document.create-element-NS{@namespace, @tag}
          else:
@@ -45,7 +58,7 @@ class VNode:
       @children-elements{} each c ->
          node.append-child{c}
 
-      expr-value @dom-node = node
+      node
 
    set-attribute{match attr, value} =
       do:
@@ -161,27 +174,28 @@ class VNode:
 
          #clobber{i, value} ->
             old-child = @children[i]
-            new-child and @children[i] = dir.clobber{old, value}
+            new-child and @children[i] = dir.clobber{old-child, value}
             if @dom-node and old-child !== new-child:
                @dom-node.replace-child{
                   @child-to-element{new-child}
                   @child-to-element{old-child}
                }
 
-         #splice{start, n, inserts} ->
+         #splice{var start, var n, inserts} ->
             acquired = inserts each
                #keep{x} -> x
                #acquire{x} -> dir.acquire{x}
             @children.splice{start, n, *acquired}
             if @dom-node:
-               anchor =
-                  if start === @children.length:
-                     null ;; insert at end
-                  else:
-                     @child-to-element{@children{start}}
-               acquired each c ->
-                  elem = @child-to-element{c}
-                  @dom-node.insert-before{elem, anchor}
+               while n > 0
+                   \ and child-at{@dom-node, start}
+                         \ === @child-to-element{acquired[0]}:
+                  start += 1
+                  n -= 1
+               0...n each _ ->
+                  remove-at-index{@dom-node, start}
+               enumerate{acquired} each {i, c} ->
+                  insert-at-index{@dom-node, start + i, @child-to-element{c}}
 
       dir.enter{@}
       @
@@ -225,11 +239,7 @@ EVNode{tags, props, Array! children} =
    namespace = tag_namespaces[String! tag]
 
    if raw:
-      VNode{tag, props, children, {namespace = namespace}}
-   else:
       {child} = children
       VNode{tag, props, {}, {raw = child, namespace = namespace}}
-
-macro{EVNode} percent{#data{x, y}} =
-   let {=> EVNode} = @deps
-   `[^x % ^y] where ENode = [^EVNode]`
+   else:
+      VNode{tag, props, children, {namespace = namespace}}
