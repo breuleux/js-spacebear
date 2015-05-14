@@ -2,7 +2,7 @@
 require:
    "./util" ->
       tuck, identify, next-id
-      ID, FORKID, VERSION, SOURCE, DIRECTORY
+      ID, FORKID, VERSION, SOURCE, DIRECTORY, CACHE
       methods
    "./struct" ->
       make-struct, struct
@@ -23,7 +23,7 @@ require:
 
 provide:
    identify, tuck
-   ID, FORKID, VERSION, SOURCE, DIRECTORY
+   ID, FORKID, VERSION, SOURCE, DIRECTORY, CACHE
    methods
    make-struct, struct
    proxy, read-proxy, write-proxy, deprox

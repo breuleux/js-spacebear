@@ -197,6 +197,7 @@ class VNode:
                enumerate{acquired} each {i, c} ->
                   insert-at-index{@dom-node, start + i, @child-to-element{c}}
 
+      tuck{@, ID, new-vdom[ID]}
       dir.enter{@}
       @
 

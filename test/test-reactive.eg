@@ -433,3 +433,29 @@ describe "Reactive functions":
             'Hello, my name is donald!'
          }
          assert @say-names.orig.count == 5
+
+
+describe "Nested reactive":
+
+   before-each:
+
+      count-calls! reactive-function! @one{person} =
+         {'A:{person.name}'}
+
+      count-calls! reactive-function! @two{person} =
+         {@one{person}, 'B:{person.name}'}
+
+      count-calls! reactive-function! @three{person} =
+         {@two{person}, 'C:{person.name}'}
+
+   it "initially correct":
+      sys = System{clara, @three}
+      assert sys.get{} == {{{"A:clara"}, "B:clara"}, "C:clara"}
+
+   it "update":
+      sys = System{clara, @three}
+      sys.transact with {clara} ->
+         clara.name = .coco
+      assert sys.get{} == {{{"A:coco"}, "B:coco"}, "C:coco"}
+
+

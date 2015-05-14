@@ -1,0 +1,74 @@
+
+require-macros:
+   "../src/struct" ->
+      struct
+   earl-mocha ->
+      describe, it, before, after, before-each, after-each
+      xdescribe, xit
+      assert, asserts
+      expect-error
+   "../src/index" ->
+      [%]
+
+require:
+   "../src/index" ->
+      deprox, make-struct, read-proxy, write-proxy, Directory, ID
+      VNode
+   "../src/reactive" ->
+      Reactive, reactive-function, System
+   "./people" ->
+      alice, bob, clara, donald, emily, francis, gerard, helen
+      aid, bid, cid, did, eid, fid, gid, hid
+
+
+count-calls{f} =
+   rval{*args} =
+      rval.count += 1
+      f.apply{this, args}
+   rval.count = 0
+   rval
+
+
+describe "Nested reactive":
+
+   before-each:
+      count-calls! reactive-function! @age1{person} =
+         span %
+            person.age
+      count-calls! reactive-function! @age2{person} =
+         span %
+            @age1{person}
+            person.age
+      count-calls! reactive-function! @age3{person} =
+         span %
+            @age2{person}
+            person.age
+
+   it "test":
+      sys = System{clara, @age3}
+      var root = sys.get{}
+      assert {
+         root.children[1]
+         root.children[0].children[1]
+         root.children[0].children[0].children[0]
+      } == {20, 20, 20}
+
+      sys.transact with {clara} ->
+         clara.age += 1
+
+      root = sys.get{}
+      assert {
+         root.children[1]
+         root.children[0].children[1]
+         root.children[0].children[0].children[0]
+      } == {21, 21, 21}
+
+      sys.transact with {clara} ->
+         clara.age += 1
+
+      root = sys.get{}
+      assert {
+         root.children[1]
+         root.children[0].children[1]
+         root.children[0].children[0].children[0]
+      } == {22, 22, 22}

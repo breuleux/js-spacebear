@@ -34,8 +34,8 @@ args-key{args} =
 
 
 get-replacement{match cached} =
-   {=> get-replacement! replacement} ->
-      replacement
+   {=> replacement} ->
+      get-replacement{replacement}
    else ->
       cached
 
