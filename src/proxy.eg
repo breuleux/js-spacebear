@@ -4,17 +4,12 @@ require:
       tuck, identify, next-id
       ID, FORKID, PROTOID
       VERSION, SOURCE, DIRECTORY
-      methods
+      methods, fields
 
 provide:
-   deprox, proxy, object-proxy, read-proxy, write-proxy
-
-
-deprox{x} =
-   if x and x[SOURCE]:
-      x[SOURCE]
-   else:
-      x
+   proxy, deprox, reprox
+   object-proxy, array-proxy
+   read-proxy, write-proxy
 
 
 proxy{match value, tracks, patch, prevent-dirty-reads = true} =
@@ -27,6 +22,20 @@ proxy{match value, tracks, patch, prevent-dirty-reads = true} =
    else ->
       object-proxy{deprox{value}, tracks, patch, prevent-dirty-reads}
 
+deprox{x} =
+   if x and x[SOURCE]:
+      x[SOURCE]
+   else:
+      x
+
+reprox{match value, tracks, patch} =
+   null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+      value
+   {^SOURCE => true? obj} ->
+      proxy{obj, tracks or obj[fields.tracks], patch or obj[fields.patch]}
+   else ->
+      proxy{value, tracks, patch}
+
 
 read-proxy{value, tracks} =
    proxy{value, tracks, null}
@@ -35,44 +44,52 @@ write-proxy{value, patch} =
    proxy{value, null, patch}
 
 
-basic-object-proxy{obj, tracks, patch
-                   prevent-dirty-reads = true} =
-
-   [@] = this
-   @_obj = obj
-   @_tracks = tracks
-   @_patch = patch
-   @_prevent-dirty-reads = prevent-dirty-reads
+setup-proxy{self, obj, tracks, patch, prevent-dirty-reads} =
 
    identify{obj}
+
+   self[fields.obj] = obj
+   self[fields.tracks] = tracks
+   self[fields.patch] = patch
+   self[fields.prevent-dirty-reads] = prevent-dirty-reads
 
    if tracks: tracks[DIRECTORY] or= obj[DIRECTORY]
    if patch:  patch[DIRECTORY]  or= obj[DIRECTORY]
 
    id = obj[ID]
-   @_obj-tracks = tracks and id and [tracks[id] or= {=}]
-   @_obj-patch = patch and id and [patch[id] or= {=}]
-   if not @_obj-patch:
-      @_prevent-dirty-reads = false
+   self[fields.obj-tracks] = tracks and id and [tracks[id] or= {=}]
+   self[fields.obj-patch] = patch and id and [patch[id] or= {=}]
+   if not self[fields.obj-patch]:
+      self[fields.prevent-dirty-reads] = false
 
-   tuck{@, SOURCE, obj}
-   tuck{@, ID, obj[ID]}
-   tuck{@, VERSION, obj[VERSION]}
+   tuck{self, SOURCE, obj}
+   tuck{self, ID, obj[ID]}
+   tuck{self, VERSION, obj[VERSION]}
 
-   Object.prevent-extensions{@}
+
+
+basic-object-proxy{obj, tracks, patch
+                   prevent-dirty-reads = true} =
+
+   self = this
+   setup-proxy{self, obj, tracks, patch, prevent-dirty-reads}
+   Object.prevent-extensions{self}
 
 basic-get{name} =
-   [@] = this
-   if @_prevent-dirty-reads and @_obj-patch[name]:
+   self = this
+   if self[fields.prevent-dirty-reads] and self[fields.obj-patch][name]:
       throw E.invalid_access with
          '''Cannot access property '{name}' after setting it.'''
-   if @_obj-tracks: @_obj-tracks[name] = true
-   proxy{@_obj[name], @_tracks, @_patch, @_prevent-dirty-reads}
+   if self[fields.obj-tracks]: self[fields.obj-tracks][name] = true
+   proxy{self[fields.obj][name]
+         self[fields.tracks]
+         self[fields.patch]
+         self[fields.prevent-dirty-reads]}
 
 basic-set{name, new-value} =
-   [@] = this
-   if @_obj-patch:
-      @_obj-patch[name] = #update{deprox{new-value}}
+   self = this
+   if self[fields.obj-patch]:
+      self[fields.obj-patch][name] = #update{deprox{new-value}}
 
 
 proxy-proto-cache = {=}
@@ -108,32 +125,19 @@ object-proxy{obj, tracks, patch, var prevent-dirty-reads = true} =
    basic-object-proxy.call{Object.create{p}, obj, tracks, patch, prevent-dirty-reads}
 
 
+
 class array-proxy:
 
    constructor{obj and @_a
                tracks and @_tracks
                patch and @_patch
-               @_prevent-dirty-reads = true} =
+               prevent-dirty-reads = true} =
 
-      identify{obj}
-      if tracks: tracks[DIRECTORY] or= obj[DIRECTORY]
-      if patch:  patch[DIRECTORY]  or= obj[DIRECTORY]
-
-      id = obj[ID]
-      @_obj-tracks = tracks and id and [tracks[id] or= {=}]
-      if @_obj-tracks:
-         tuck{@_obj-tracks, SOURCE, obj}
-
-      @_obj-patch = patch and id and [patch[id] or= {=}]
-      if @_obj-patch:
-         tuck{@_obj-patch, SOURCE, obj}
-      else:
-         @_prevent-dirty-reads = false
-
-      tuck{@, SOURCE, obj}
-
-      ;; @_proxies = @_a each x ->
-      ;;    proxy{x, @_tracks, @_patch, @_prevent-dirty-reads}
+      self = [@]
+      setup-proxy{@, obj, tracks, patch, prevent-dirty-reads}
+      @_obj-tracks = self[fields.obj-tracks]
+      @_obj-patch = self[fields.obj-patch]
+      @_prevent-dirty-reads = self[fields.prevent-dirty-reads]
 
    _update-iter{match, i, j, stick-to-end = false} =
       undefined? ->

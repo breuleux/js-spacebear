@@ -2,7 +2,7 @@
 provide:
    tuck
    ID, CLOBBERID, FORKID, PROTOID, VERSION, SOURCE, DIRECTORY, CACHE
-   methods
+   methods, fields
    next-id, identify, fork-identify
    longest-run
 
@@ -30,6 +30,16 @@ methods = {
    patch = Symbol{.patch}
    clobber = Symbol{.clobber}
 }
+
+fields = {
+   obj = Symbol{.obj}
+   tracks = Symbol{.tracks}
+   patch = Symbol{.patch}
+   prevent-dirty-reads = Symbol{.prevent-dirty-reads}
+   obj-tracks = Symbol{.obj-tracks}
+   obj-patch = Symbol{.obj-patch}
+}
+
 
 var _id = 0
 
