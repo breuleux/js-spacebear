@@ -1,7 +1,7 @@
 
 require:
    "./proxy" ->
-      deprox
+      proxy, deprox, reprox
       read-proxy, write-proxy
    "./iter" ->
       iterate-properties
@@ -12,6 +12,7 @@ require:
    "./util" ->
       tuck, identify, fork-identify
       ID, FORKID, VERSION, DIRECTORY, CACHE
+      fields
    "./root" ->
       Root
 
@@ -103,12 +104,14 @@ class Reactive:
 
    render-cache-object{args} =
       deps = {=}
-      pargs = args each deprox! arg -> read-proxy{arg, deps}
+      ;; pargs = args each deprox! arg -> read-proxy{arg, deps}
+      pargs = args each arg -> reprox{arg, deps, null}
       {=> version = null} = deps[DIRECTORY]
       res = identify{@renderfn.apply{@, pargs}}
       cached = CachedResult{@, args, res, deps, version}
       tuck{res, CACHE, cached}
       cached
+
 
 
 class System:
@@ -117,17 +120,37 @@ class System:
       {clobber-patch => @clobber-patch = true
        action => @action = {x} -> x} = @options
 
+      @patch-stack = {}
+      @push{}
+
       @bdir = Directory{}
       @basis = @bdir.acquire-copy{@origin}
+      @basis-proxy = proxy{@basis, null, @current-patch}
 
       @vdir = Directory{clobber-patch = @clobber-patch}
       @value-root = CachedResult{null, null, r, null} where
-         r = @vdir.acquire with Root{@render{@basis}, @action, true}
+         r = @vdir.acquire with Root{@render{@basis-proxy}, @action, true}
 
    get{} =
       @value-root.value.root
 
-   update{the-patch} =
+   get-proxy{} =
+      @value-root.value.root
+
+   push{} =
+      next = {=}
+      if @current-patch:
+         @current-patch[fields.next-patch] = next
+         @patch-stack.push with @current-patch
+      @current-patch = next
+
+   commit{} =
+      @push{}
+      {stack, @patch-stack} = {@patch-stack, {}}
+      stack each patch ->
+         @apply-patch{patch}
+
+   apply-patch{the-patch} =
       @bdir.patch{the-patch}
       new-patch = {=}
       @value-root.transform-patch{the-patch, new-patch, @bdir}
@@ -137,7 +160,37 @@ class System:
       let patch = {=}
       proxies = roots each root -> write-proxy{root, patch}
       fn.apply{this, proxies}
-      @update{patch}
+      @apply-patch{patch}
+
+
+
+;; class System:
+
+;;    constructor{@origin, @render, @options = {=}} =
+;;       {clobber-patch => @clobber-patch = true
+;;        action => @action = {x} -> x} = @options
+
+;;       @bdir = Directory{}
+;;       @basis = @bdir.acquire-copy{@origin}
+
+;;       @vdir = Directory{clobber-patch = @clobber-patch}
+;;       @value-root = CachedResult{null, null, r, null} where
+;;          r = @vdir.acquire with Root{@render{@basis}, @action, true}
+
+;;    get{} =
+;;       @value-root.value.root
+
+;;    update{the-patch} =
+;;       @bdir.patch{the-patch}
+;;       new-patch = {=}
+;;       @value-root.transform-patch{the-patch, new-patch, @bdir}
+;;       @vdir.patch{new-patch}
+
+;;    transact{fn, Array! roots = {@basis}} =
+;;       let patch = {=}
+;;       proxies = roots each root -> write-proxy{root, patch}
+;;       fn.apply{this, proxies}
+;;       @update{patch}
 
 
 reactive-function{render} =

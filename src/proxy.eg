@@ -32,7 +32,7 @@ reprox{match value, tracks, patch} =
    null? or undefined? or Number? or String? or Symbol? or Boolean? ->
       value
    {^SOURCE => true? obj} ->
-      proxy{obj, tracks or obj[fields.tracks], patch or obj[fields.patch]}
+      proxy{obj, tracks or value[fields.tracks], patch or value[fields.patch]}
    else ->
       proxy{value, tracks, patch}
 
@@ -66,18 +66,27 @@ setup-proxy{self, obj, tracks, patch, prevent-dirty-reads} =
    tuck{self, ID, obj[ID]}
    tuck{self, VERSION, obj[VERSION]}
 
+update-next-patch{self} =
+   var p = self[fields.patch]
+   while p and p[fields.next-patch]:
+      id = self[ID]
+      p = p[fields.next-patch]
+      self[fields.patch] = p
+      self[fields.obj-patch] = p[id] or= {=}
+   true
 
 
 basic-object-proxy{obj, tracks, patch
                    prevent-dirty-reads = true} =
-
    self = this
    setup-proxy{self, obj, tracks, patch, prevent-dirty-reads}
    Object.prevent-extensions{self}
 
 basic-get{name} =
    self = this
-   if self[fields.prevent-dirty-reads] and self[fields.obj-patch][name]:
+   if self[fields.prevent-dirty-reads]
+      \ and update-next-patch{self}
+      \ and self[fields.obj-patch][name]:
       throw E.invalid_access with
          '''Cannot access property '{name}' after setting it.'''
    if self[fields.obj-tracks]: self[fields.obj-tracks][name] = true
@@ -88,6 +97,7 @@ basic-get{name} =
 
 basic-set{name, new-value} =
    self = this
+   update-next-patch{self}
    if self[fields.obj-patch]:
       self[fields.obj-patch][name] = #update{deprox{new-value}}
 
@@ -128,16 +138,8 @@ object-proxy{obj, tracks, patch, var prevent-dirty-reads = true} =
 
 class array-proxy:
 
-   constructor{obj and @_a
-               tracks and @_tracks
-               patch and @_patch
-               prevent-dirty-reads = true} =
-
-      self = [@]
+   constructor{obj, tracks, patch, prevent-dirty-reads = true} =
       setup-proxy{@, obj, tracks, patch, prevent-dirty-reads}
-      @_obj-tracks = self[fields.obj-tracks]
-      @_obj-patch = self[fields.obj-patch]
-      @_prevent-dirty-reads = self[fields.prevent-dirty-reads]
 
    _update-iter{match, i, j, stick-to-end = false} =
       undefined? ->
@@ -150,26 +152,38 @@ class array-proxy:
    ;; GETTERS
 
    get{i} =
-      if @_prevent-dirty-reads and @_obj-patch[i]:
+      if self[fields.prevent-dirty-reads]
+         \ and update-next-patch{self}
+         \ and self[fields.obj-patch][i]:
          throw E.invalid_access with
             '''Cannot access index '{i}' after setting it.'''
-      if @_obj-tracks: @_obj-tracks[i] = true
-      proxy{@_a[i], @_tracks, @_patch, @_prevent-dirty-reads}
-      ;; @_proxies[i]
+      if self[fields.obj-tracks]: self[fields.obj-tracks][i] = true
+      proxy{self[fields.obj][i]
+            self[fields.tracks]
+            self[fields.patch]
+            self[fields.prevent-dirty-reads]}
 
    slice{i = 0, var j = null} =
-      stick = if{j === null, [j = @_a.length; true], false}
-      if @_obj-tracks:
-         @_obj-tracks["@iter"] = @_update-iter{@_obj-tracks["@iter"], i, j, stick}
-      @_a.slice{i, j} each* x ->
-         proxy{x, @_tracks, @_patch, @_prevent-dirty-reads}
-      ;; @_proxies.slice{i, j} each* x -> x
+      stick = if{j === null, [j = self[fields.obj].length; true], false}
+      if self[fields.obj-tracks]:
+         self[fields.obj-tracks]["@iter"] =
+            @_update-iter{self[fields.obj-tracks]["@iter"], i, j, stick}
+      self[fields.obj].slice{i, j} each* x ->
+         proxy{x
+               self[fields.tracks]
+               self[fields.patch]
+               self[fields.prevent-dirty-reads]}
 
    [^Symbol.iterator]{} =
-      proxies = @_a each x -> proxy{x, @_tracks, @_patch, @_prevent-dirty-reads}
-      if @_obj-tracks: @_obj-tracks["@iter"] = {0, @_a.length, true}
+      proxies = self[fields.obj] each x ->
+         proxy{x
+               self[fields.tracks]
+               self[fields.patch]
+               self[fields.prevent-dirty-reads]}
+      if self[fields.obj-tracks]:
+         self[fields.obj-tracks]["@iter"] =
+            {0, self[fields.obj].length, true}
       proxies[Symbol.iterator]{}
-      ;; @_proxies[Symbol.iterator]{}
 
    for-each{fn} =
       [@] each x -> fn{x}
@@ -190,9 +204,9 @@ class array-proxy:
       @_splice{i, 1, {new-value}, false}
 
    pop{n = 1} =
-      @_splice{@_a.length - n, n, {}, false}
+      @_splice{self[fields.obj].length - n, n, {}, false}
    push{*values} =
-      @_splice{@_a.length, 0, values, .append}
+      @_splice{self[fields.obj].length, 0, values, .append}
 
    shift{n = 1} =
       @_splice{0, n, {}, false}
@@ -203,12 +217,13 @@ class array-proxy:
       @_splice{i, n, values, false}
 
    replace{new-array} =
-      @_splice{0, @_a.length, new-array, false}
+      @_splice{0, self[fields.obj].length, new-array, false}
 
    ._splice{i, n, values, pos = false} =
       emsg = 'Inconsistent splicing (this may happen if you modify'
          \ + ' the array more than once at the same place)'
-      d = [@_obj-patch["@splice"] or= Array{@_a.length + 1}]
+      update-next-patch{self}
+      d = [self[fields.obj-patch]["@splice"] or= Array{self[fields.obj].length + 1}]
       match d[i]:
          === true ->
             throw E.splice{emsg}
@@ -231,10 +246,16 @@ class array-proxy:
 
 Object.define-property{array-proxy.prototype, .length} with {
    .get{} =
-      if this._prevent-dirty-reads and this._obj-patch[.length]:
+      if this[fields.prevent-dirty-reads]
+         \ and update-next-patch{this}
+         \ and this[fields.obj-patch][.length]:
          throw E.invalid_access with
             '''Array length has changed.'''
-      if this._obj-tracks: this._obj-tracks[.length] = true
-      proxy{this._a.length, this._tracks, this._patch, this._prevent-dirty-reads}
+      if this[fields.obj-tracks]:
+         this[fields.obj-tracks][.length] = true
+      proxy{this[fields.obj].length
+            this[fields.tracks]
+            this[fields.patch]
+            this[fields.prevent-dirty-reads]}
 }
 
