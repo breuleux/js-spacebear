@@ -138,12 +138,12 @@ class System:
        action => @action = {x} -> x} = @options
 
       @patch-stack = {}
-      @push{}
+      @patch = Patch{}
 
       @bdir = Directory{}
       @basis = @bdir.acquire-copy{@origin}
       @basis.__SYSTEM = [@]
-      @basis-proxy = proxy{@basis, null, @current-patch}
+      @basis-proxy = proxy{@basis, null, @patch}
 
       @vdir = Directory{clobber-patch = @clobber-patch}
 
@@ -159,17 +159,13 @@ class System:
       @basis-proxy
 
    push{} =
-      next = Patch{} ;;{=}
-      if @current-patch:
-         @current-patch[fields.next-patch] = next
-         @patch-stack.push with @current-patch
-      @current-patch = next
+      @patch-stack.push with @patch.shift{}
 
    commit{} =
       @push{}
       {stack, @patch-stack} = {@patch-stack, {}}
       stack each patch ->
-         @apply-patch{patch}
+         @apply-patch{Patch{patch}}
 
    apply-patch{the-patch} =
       @bdir.patch{the-patch}

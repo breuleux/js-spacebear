@@ -15,14 +15,16 @@ provide:
 
 
 class Patch:
-   constructor{} =
-      @data = {=}
+   constructor{@data = {=}} =
+      pass
    get{id} =
       @data[id] or= {=}
    get-for{obj} =
       if not obj: return null
       id = obj[ID]
       id and [@data[id] or= {=}]
+   shift{new-data = {=}} =
+      {expr-value, @data} = {@data, new-data}
    list{} =
       items{@data}
 
@@ -82,16 +84,6 @@ setup-proxy{self, obj, tracks, patch, prevent-dirty-reads} =
    tuck{self, ID, obj[ID]}
    tuck{self, VERSION, obj[VERSION]}
 
-update-next-patch{self} =
-   var p = self[fields.patch]
-   while p and p[fields.next-patch]:
-      id = self[ID]
-      p = p[fields.next-patch]
-      self[fields.patch] = p
-      ;; self[fields.obj-patch] = p[id] or= {=}
-      self[fields.obj-patch] = p.get{id} ;;[id] or= {=}
-   true
-
 
 basic-object-proxy{obj, tracks, patch
                    prevent-dirty-reads = true} =
@@ -102,7 +94,6 @@ basic-object-proxy{obj, tracks, patch
 basic-get{name} =
    self = this
    if self[fields.prevent-dirty-reads]
-      \ and update-next-patch{self}
       \ and self[fields.obj-patch][name]:
       throw E.invalid_access with
          '''Cannot access property '{name}' after setting it.'''
@@ -114,7 +105,6 @@ basic-get{name} =
 
 basic-set{name, new-value} =
    self = this
-   update-next-patch{self}
    if self[fields.obj-patch]:
       self[fields.obj-patch][name] = #update{deprox{new-value}}
 
@@ -176,7 +166,6 @@ class array-proxy:
 
    get{i} =
       if self[fields.prevent-dirty-reads]
-         \ and update-next-patch{self}
          \ and self[fields.obj-patch][i]:
          throw E.invalid_access with
             '''Cannot access index '{i}' after setting it.'''
@@ -245,7 +234,6 @@ class array-proxy:
    ._splice{i, n, values, pos = false} =
       emsg = 'Inconsistent splicing (this may happen if you modify'
          \ + ' the array more than once at the same place)'
-      update-next-patch{self}
       d = [self[fields.obj-patch]["@splice"] or= Array{self[fields.obj].length + 1}]
       match d[i]:
          === true ->
@@ -270,7 +258,6 @@ class array-proxy:
 Object.define-property{array-proxy.prototype, .length} with {
    .get{} =
       if this[fields.prevent-dirty-reads]
-         \ and update-next-patch{this}
          \ and this[fields.obj-patch][.length]:
          throw E.invalid_access with
             '''Array length has changed.'''

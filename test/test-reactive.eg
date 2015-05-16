@@ -459,4 +459,11 @@ describe "Nested reactive":
          clara.name = .coco
       assert sys.get{} == {{{"A:coco"}, "B:coco"}, "C:coco"}
 
+   it "using commit":
+      sys = System{clara, @three}
+      _clara = sys.model{}
+      _clara.name = .coco
+      sys.commit{}
+      assert sys.get{} == {{{"A:coco"}, "B:coco"}, "C:coco"}
+
 
