@@ -117,12 +117,18 @@ proxy-proto-for{obj} =
    match proxy-proto-cache[key]:
       undefined? ->
          proto = Object.create{orig-proto}
-         the-keys each name ->
-            Object.define-property{proto, name} with {
-               get{} = this._get{name}
-               set{value} = this._set{name, value}
-               enumerable = true
-            }
+         the-keys each match name ->
+            R"^__"? ->
+               Object.define-property{proto, name} with {
+                  get{} = this[fields.obj][name]
+                  enumerable = true
+               }
+            else ->
+               Object.define-property{proto, name} with {
+                  get{} = this._get{name}
+                  set{value} = this._set{name, value}
+                  enumerable = true
+               }
          proto._get = basic-get
          proto._set = basic-set
          expr-value proxy-proto-cache[key] = proto

@@ -3,7 +3,7 @@ require:
    "./util" ->
       tuck, identify, next-id
       ID, FORKID, VERSION, SOURCE, DIRECTORY, CACHE
-      methods
+      methods, fields
    "./struct" ->
       make-struct, struct
    "./proxy" ->
@@ -21,6 +21,7 @@ require:
       VNode, ENode as EVNode
    "./reactive" ->
       System, reactive-function
+      current-system
 
 provide:
    identify, tuck
@@ -34,9 +35,28 @@ provide:
    changed-relevantly
    intersect
    Root
-   VNode, EVNode as ENode, percent as [%]
+   VNode, EVNode as ENode
    System, reactive-function
+   current-system
+
+   percent as [%]
+   reactive
 
 macro{EVNode} percent{#data{x, y}} =
    let {=> EVNode} = @deps
    `[^x % ^y] where ENode = [^EVNode]`
+
+macro{reactive-function} reactive{expr} =
+   let {"reactive-function" => rfn} = @deps
+   {system, it, self} = @mark{`system`, `@`, `self`}
+   @multimacro with {
+      project{`^args -> ^body`} =
+         ```
+         [^rfn] with
+            ^args ->
+               let ^system = this.__SYSTEM
+               let ^it and ^self = this
+               ^body
+         ```
+   }
+

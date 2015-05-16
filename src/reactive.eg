@@ -19,7 +19,8 @@ require:
 provide:
    Reactive, reactive-function
    args-key
-   System
+   System, with-system, current-system
+
 
 
 arg-key{match x} =
@@ -43,7 +44,7 @@ get-replacement{match cached} =
 
 class CachedResult:
 
-   constructor{@reactive, @args, @value, @deps, @version} =
+   constructor{@reactive, @self, @args, @value, @deps, @version} =
       @children = {}
       @walk{@value}
 
@@ -59,7 +60,7 @@ class CachedResult:
       {children, @children} = {@children, {}}
       children each {k, vid, orig-cached and get-replacement! cached, gen-patch} ->
          if not cached.transform-patch{the-patch, new-patch, dir}:
-            new-cached = cached.reactive.render{cached.args, true}
+            new-cached = cached.reactive.render{cached.self, cached.args, true}
             cached.replacement = new-cached
             new-cached.transform-patch-children{the-patch, new-patch, dir}
             gen-patch{new-patch, new-cached.value}
@@ -91,32 +92,47 @@ class Reactive:
    constructor{@renderfn} =
       @argmap = {=}
 
-   render{args, force = false} =
-      key = args-key{args}
+   render{the-self, args, force = false} =
+      key = args-key{{the-self} ++ args}
       cached =
          match @argmap[key]:
             undefined? or [== true is force] ->
-               @render-cache-object{args}
+               @render-cache-object{the-self, args}
             cached ->
                cached
       @argmap[key] = cached
       cached
 
-   render-cache-object{args} =
+   render-cache-object{the-self, args} =
       deps = {=}
       ;; pargs = args each deprox! arg -> read-proxy{arg, deps}
       pargs = args each arg -> reprox{arg, deps, null}
       {=> version = null} = deps[DIRECTORY]
-      res = identify{@renderfn.apply{@, pargs}}
-      cached = CachedResult{@, args, res, deps, version}
+      res = identify{@renderfn.apply{the-self, pargs}}
+      cached = CachedResult{@, reprox{the-self, deps, null}, args, res, deps, version}
       tuck{res, CACHE, cached}
       cached
 
 
 
+system-stack = {}
+
+with-system{sys, fn} =
+   system-stack.unshift{sys}
+   result = fn{}
+   system-stack.shift{}
+   result
+
+current-system{} =
+   system-stack[0]
+
+
 class System:
 
    constructor{@origin, @render, @options = {=}} =
+      identify{@}
+      fork-identify{@}
+
       {clobber-patch => @clobber-patch = true
        action => @action = {x} -> x} = @options
 
@@ -125,17 +141,21 @@ class System:
 
       @bdir = Directory{}
       @basis = @bdir.acquire-copy{@origin}
+      @basis.__SYSTEM = [@]
       @basis-proxy = proxy{@basis, null, @current-patch}
 
       @vdir = Directory{clobber-patch = @clobber-patch}
-      @value-root = CachedResult{null, null, r, null} where
-         r = @vdir.acquire with Root{@render{@basis-proxy}, @action, true}
+
+      rend = with-system{@, -> @render{@basis-proxy}}
+      @value-root = CachedResult{null, null, null, r, null} where
+         r = @vdir.acquire with
+            Root{rend, @action, true}
 
    get{} =
       @value-root.value.root
 
-   get-proxy{} =
-      @value-root.value.root
+   model{} =
+      @basis-proxy
 
    push{} =
       next = {=}
@@ -153,7 +173,8 @@ class System:
    apply-patch{the-patch} =
       @bdir.patch{the-patch}
       new-patch = {=}
-      @value-root.transform-patch{the-patch, new-patch, @bdir}
+      with-system{@} with ->
+         @value-root.transform-patch{the-patch, new-patch, @bdir}
       @vdir.patch{new-patch}
 
    transact{fn, Array! roots = {@basis}} =
@@ -163,39 +184,11 @@ class System:
       @apply-patch{patch}
 
 
-
-;; class System:
-
-;;    constructor{@origin, @render, @options = {=}} =
-;;       {clobber-patch => @clobber-patch = true
-;;        action => @action = {x} -> x} = @options
-
-;;       @bdir = Directory{}
-;;       @basis = @bdir.acquire-copy{@origin}
-
-;;       @vdir = Directory{clobber-patch = @clobber-patch}
-;;       @value-root = CachedResult{null, null, r, null} where
-;;          r = @vdir.acquire with Root{@render{@basis}, @action, true}
-
-;;    get{} =
-;;       @value-root.value.root
-
-;;    update{the-patch} =
-;;       @bdir.patch{the-patch}
-;;       new-patch = {=}
-;;       @value-root.transform-patch{the-patch, new-patch, @bdir}
-;;       @vdir.patch{new-patch}
-
-;;    transact{fn, Array! roots = {@basis}} =
-;;       let patch = {=}
-;;       proxies = roots each root -> write-proxy{root, patch}
-;;       fn.apply{this, proxies}
-;;       @update{patch}
-
-
 reactive-function{render} =
    r = Reactive{render}
    rval{*args} =
-      r.render{args}.value
+      system = current-system{}
+      the-self = system.model{}
+      r.render{the-self, args}.value
    rval.orig = render
    rval

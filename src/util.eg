@@ -39,6 +39,7 @@ fields = {
    obj-tracks = Symbol{.obj-tracks}
    obj-patch = Symbol{.obj-patch}
    next-patch = Symbol{.next-patch}
+   system = Symbol{.system}
 }
 
 
