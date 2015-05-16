@@ -36,8 +36,6 @@ object-iterate-properties{obj, wrapper = obj} =
       {k, v, gen-patch} where
          gen-patch{patch, new-v} =
             patch.get{id}[k] = #update{new-v}
-            ;; patch[id] or= {=}
-            ;; patch[id][k] = #update{new-v}
 
 array-iterate-properties{arr, wrapper = arr} =
    id = wrapper[ID]
@@ -47,8 +45,4 @@ array-iterate-properties{arr, wrapper = arr} =
             ap = patch.get{id}
             ap["@splice"] or= Array{arr.length + 1}
             ap["@splice"][i] = {1, {new-v}}
-
-            ;; patch[id] or= {=}
-            ;; patch[id]["@splice"] or= Array{arr.length + 1}
-            ;; patch[id]["@splice"][i] = {1, {new-v}}
 

@@ -75,7 +75,6 @@ setup-proxy{self, obj, tracks, patch, prevent-dirty-reads} =
 
    id = obj[ID]
    self[fields.obj-tracks] = tracks and id and [tracks[id] or= {=}]
-   ;; self[fields.obj-patch] = patch and id and [patch[id] or= {=}]
    self[fields.obj-patch] = patch and patch.get-for{obj}
    if not self[fields.obj-patch]:
       self[fields.prevent-dirty-reads] = false

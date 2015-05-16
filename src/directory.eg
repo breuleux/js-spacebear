@@ -170,10 +170,6 @@ class Directory:
       ;; patch for ID == x was applied before. This should be ok if
       ;; the item is already in the directory, otherwise it may fail.
       @version += 1
-      ;; print #wack{p}
-      ;; items{p} each {id, obj-patch} ->
-      ;;    @get-all{id} each obj ->
-      ;;       patch-shallow{obj, p, @}
       p.list{} each {id, obj-patch} ->
          @get-all{id} each obj ->
             patch-shallow{obj, p, @}
@@ -232,7 +228,6 @@ object-patch{obj, p, dir, wrapper = obj} =
 
 array-patch{arr, p, dir, wrapper = arr} =
    identify{wrapper}
-   ;; splices = p??[wrapper[ID]]??["@splice"]
    splices = p.get-for{wrapper}??["@splice"]
    if not splices:
       return

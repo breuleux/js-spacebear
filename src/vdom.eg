@@ -87,8 +87,6 @@ class VNode:
    [^methods.iterate-properties]{} =
       id = self[ID]
       gen-patch{k}{patch, new-v} =
-         ;; patch[id] or= {=}
-         ;; patch[id][k] = #update{new-v}
          patch.get-for{@}[k] = #update{new-v}
 
       var results = {
