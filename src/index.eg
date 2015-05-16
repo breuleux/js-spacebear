@@ -41,6 +41,8 @@ provide:
 
    percent as [%]
    reactive
+   transact
+
 
 macro{EVNode} percent{#data{x, y}} =
    let {=> EVNode} = @deps
@@ -60,3 +62,8 @@ macro{reactive-function} reactive{expr} =
          ```
    }
 
+macro{} transact{#data{body}} =
+   system = @mark{`system`}
+   ```
+   [^system].transact with {_} -> ^body
+   ```
