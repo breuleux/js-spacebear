@@ -12,7 +12,7 @@ require:
    "../src/index" ->
       identify
       make-struct
-      proxy, read-proxy, write-proxy
+      Patch, proxy, read-proxy, write-proxy
       Directory
       changed-relevantly, intersect
       ID, FORKID, DIRECTORY
@@ -279,7 +279,7 @@ describe "directory":
    describe "patch, duplicate = false":
 
       before-each:
-         @data = {=}
+         @data = Patch{}
          @clara = @dir.acquire{clara}
          @clarap = write-proxy{@clara, @data}
          @donald = @dir.acquire{donald}
@@ -319,7 +319,7 @@ describe "directory":
          @dir.patch{@data}
 
          ;; Second round
-         @data = {=}
+         @data = Patch{}
          @donaldp = write-proxy{@donald, @data}
          @donaldp.mother.age = 900
          @dir.patch{@data}
@@ -335,7 +335,7 @@ describe "directory":
          @dir.patch{@data}
 
          ;; Second round
-         @data = {=}
+         @data = Patch{}
          @clarap = write-proxy{@clara, @data}
          @clarap.father = alice
          @dir.patch{@data}
@@ -347,7 +347,7 @@ describe "directory":
    describe "patch, duplicate = true":
 
       before-each:
-         @data = {=}
+         @data = Patch{}
          @clara = @dir2.acquire{clara}
          @clarap = write-proxy{@clara, @data}
          @donald = @dir2.acquire{donald}
@@ -382,7 +382,7 @@ describe "directory":
          @dir2.patch{@data}
 
          ;; Second round
-         @data = {=}
+         @data = Patch{}
          @donaldp = write-proxy{@donald, @data}
          @donaldp.mother.age = 900
          @dir2.patch{@data}
@@ -398,7 +398,7 @@ describe "directory":
          @dir2.patch{@data}
 
          ;; Second round
-         @data = {=}
+         @data = Patch{}
          @clarap = write-proxy{@clara, @data}
          @clarap.father = alice
          @dir2.patch{@data}
@@ -412,7 +412,7 @@ describe "directory":
       describe "patch (shallow)":
 
          before-each:
-            @patch = {=}
+            @patch = Patch{}
             @arr = @dir.acquire with {1, 2, 3}
             @p = write-proxy{@arr, @patch}
             @id = @arr[ID]
@@ -447,7 +447,7 @@ describe "directory":
             identify! @b = {4, 5, 6}
             identify! @c = @dir.acquire with {@a, @b}
             @tracks = {=}
-            @patch = {=}
+            @patch = Patch{}
             @p = proxy{@c, @tracks, @patch}
 
          it "test":

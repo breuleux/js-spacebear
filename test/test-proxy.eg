@@ -15,6 +15,7 @@ require:
       Directory
       changed-relevantly, intersect
       ID, FORKID
+      Patch
 
 
 class Person:
@@ -61,13 +62,13 @@ describe "read-proxy":
 describe "write-proxy":
 
    before-each:
-      @data = {=}
-      @clara = write-proxy{clara, @data}
+      @patch = Patch{}
+      @clara = write-proxy{clara, @patch}
 
    it "shallow":
       @clara.name = .clairette
       @clara.age = 21
-      assert @data == {
+      assert @patch.data == {
          cid => {
             name = #update{.clairette}
             age = #update{21}
@@ -76,7 +77,7 @@ describe "write-proxy":
 
    it "methods":
       @clara.get-older{10}
-      assert @data == {
+      assert @patch.data == {
          cid => {
             age = #update{30}
          }
@@ -85,7 +86,7 @@ describe "write-proxy":
    it "deep":
       @clara.name = .clairette
       @clara.mother.age = 21
-      assert @data == {
+      assert @patch.data == {
          cid => {
             name = #update{.clairette}
          }
@@ -202,11 +203,11 @@ describe "array-proxy":
    describe "write":
 
       before-each:
-         @patch = {=}
+         @patch = Patch{}
          @arr = {1, 2, 3}
          @p = write-proxy{@arr, @patch}
          @id = @arr[ID]
-         @spldata{} = @patch[@id]["@splice"]
+         @spldata{} = @patch.get{@id}["@splice"]
 
       it "set":
          @p.set{0, 11}
@@ -280,13 +281,13 @@ describe "array-proxy":
    describe "write (deep)":
 
       before-each:
-         @patch = {=}
+         @patch = Patch{}
          @arr = {identify! {alice}, bob, donald}
          @p = write-proxy{@arr, @patch}
          @id = @arr[ID]
          @id2 = @arr[0][ID]
-         @spldata{} = @patch[@id]["@splice"]
-         @spldata2{} = @patch[@id2]["@splice"]
+         @spldata{} = @patch.get{@id}["@splice"]
+         @spldata2{} = @patch.get{@id2}["@splice"]
 
       it "set":
          @p.set{2, donald}
@@ -306,7 +307,7 @@ describe "array-proxy":
 
       it "set (3)":
          @p.get{0}.get{0}.name = .athena
-         assert @patch == {
+         assert @patch.data == {
             @id => {=}
             @id2 => {=}
             aid => {name = #update{.athena}}

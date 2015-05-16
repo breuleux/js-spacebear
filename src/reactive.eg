@@ -1,6 +1,7 @@
 
 require:
    "./proxy" ->
+      Patch
       proxy, deprox, reprox
       read-proxy, write-proxy
    "./iter" ->
@@ -158,7 +159,7 @@ class System:
       @basis-proxy
 
    push{} =
-      next = {=}
+      next = Patch{} ;;{=}
       if @current-patch:
          @current-patch[fields.next-patch] = next
          @patch-stack.push with @current-patch
@@ -172,13 +173,13 @@ class System:
 
    apply-patch{the-patch} =
       @bdir.patch{the-patch}
-      new-patch = {=}
+      new-patch = Patch{} ;; {=}
       with-system{@} with ->
          @value-root.transform-patch{the-patch, new-patch, @bdir}
       @vdir.patch{new-patch}
 
    transact{fn, Array! roots = {@basis}} =
-      let patch = {=}
+      let patch = Patch{} ;; {=}
       proxies = roots each root -> write-proxy{root, patch}
       fn.apply{this, proxies}
       @apply-patch{patch}

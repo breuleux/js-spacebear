@@ -11,6 +11,7 @@ require-macros:
 require:
    "../src/index" ->
       deprox, make-struct, read-proxy, write-proxy, Directory, ID
+      Patch
    "../src/reactive" ->
       Reactive, reactive-function, System
    "./people" ->
@@ -39,11 +40,11 @@ describe "utilities":
       assert f.count == 2
 
    it "ArrayProx predicate":
-      p1 = write-proxy{{1, 2, 3}, {=}}
+      p1 = write-proxy{{1, 2, 3}, Patch{}}
       assert [ArrayProx? p1]
       p2 = read-proxy{{1, 2, 3}, {=}}
       assert [ArrayProx? p2]
-      p3 = write-proxy{{a = 1, b = 2}, {=}}
+      p3 = write-proxy{{a = 1, b = 2}, Patch{}}
       assert not [ArrayProx? p3]
       assert [ArrayProx? {1, 2, 3}]
 

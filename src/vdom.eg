@@ -87,8 +87,9 @@ class VNode:
    [^methods.iterate-properties]{} =
       id = self[ID]
       gen-patch{k}{patch, new-v} =
-         patch[id] or= {=}
-         patch[id][k] = #update{new-v}
+         ;; patch[id] or= {=}
+         ;; patch[id][k] = #update{new-v}
+         patch.get-for{@}[k] = #update{new-v}
 
       var results = {
          {'raw/', @raw, gen-patch{'raw/'}}
@@ -122,7 +123,8 @@ class VNode:
       rval
 
    [^methods.patch]{patch, dir} =
-      patches = patch[self[ID]]
+      ;; patches = patch[self[ID]]
+      patches = patch.get-for{self}
 
       if not patches:
          return

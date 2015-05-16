@@ -7,7 +7,7 @@ provide:
 
 
 intersect{tracks, patch, dir} =
-   items{patch} each {id, writes} ->
+   patch.list{} each {id, writes} ->
       obj = dir.get{id}
       reads = tracks[id]
       if reads and changed-relevantly{obj, reads, writes}:

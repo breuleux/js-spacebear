@@ -7,9 +7,24 @@ require:
       methods, fields
 
 provide:
+   Patch
    proxy, deprox, reprox
    object-proxy, array-proxy
    read-proxy, write-proxy
+
+
+
+class Patch:
+   constructor{} =
+      @data = {=}
+   get{id} =
+      @data[id] or= {=}
+   get-for{obj} =
+      if not obj: return null
+      id = obj[ID]
+      id and [@data[id] or= {=}]
+   list{} =
+      items{@data}
 
 
 proxy{match value, tracks, patch, prevent-dirty-reads = true} =
@@ -58,7 +73,8 @@ setup-proxy{self, obj, tracks, patch, prevent-dirty-reads} =
 
    id = obj[ID]
    self[fields.obj-tracks] = tracks and id and [tracks[id] or= {=}]
-   self[fields.obj-patch] = patch and id and [patch[id] or= {=}]
+   ;; self[fields.obj-patch] = patch and id and [patch[id] or= {=}]
+   self[fields.obj-patch] = patch and patch.get-for{obj}
    if not self[fields.obj-patch]:
       self[fields.prevent-dirty-reads] = false
 
@@ -72,7 +88,8 @@ update-next-patch{self} =
       id = self[ID]
       p = p[fields.next-patch]
       self[fields.patch] = p
-      self[fields.obj-patch] = p[id] or= {=}
+      ;; self[fields.obj-patch] = p[id] or= {=}
+      self[fields.obj-patch] = p.get{id} ;;[id] or= {=}
    true
 
 

@@ -24,8 +24,9 @@ class Root:
       id = self[ID]
       {{"root", @root, gen-patch}} where
          gen-patch{patch, new-v} =
-            patch[id] or= {=}
-            patch[id].root = #update{new-v}
+            patch.get{id}.root = #update{new-v}
+            ;; patch[id] or= {=}
+            ;; patch[id].root = #update{new-v}
 
    [^methods.fork]{dir} =
       rval = Root{dir.acquire{@root}, @action}
@@ -36,7 +37,7 @@ class Root:
       rval
 
    [^methods.patch]{patch, dir} =
-      match patch[self[ID]]:
+      match patch.get-for{self}:
          {root => #update{new-root}} ->
             @root = dir.replace{@root, new-root}
             @action{@root}
