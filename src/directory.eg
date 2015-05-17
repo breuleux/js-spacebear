@@ -48,16 +48,17 @@ class Directory:
          identify! value
          fork-identify! value
       when not @duplicate ->
-         {@dir[value[ID]], return} =
-            match @dir[value[ID]]:
-               undefined? ->
-                  tuck{value, DIRECTORY, @}
-                  if add-children:
-                     iterate-properties{value} each {k, v2, replace} ->
-                        @enter{v2, true}
-                  {{1, value}, value}
-               {count, value} ->
-                  {{count + 1, value}, value}
+         match @dir[value[ID]]:
+            undefined? ->
+               tuck{value, DIRECTORY, @}
+               @dir[value[ID]] = {1, value}
+               if add-children:
+                  iterate-properties{value} each {k, v2, replace} ->
+                     @enter{v2, true}
+               value
+            {count, value} ->
+               @dir[value[ID]] = {count + 1, value}
+               value
 
       else ->
          sub = [@dir[value[ID]] or= {=}]
@@ -109,6 +110,7 @@ class Directory:
          v
       identify! [{^DIRECTORY => d} or d is undefined] and match is d ->
          === [@] ->
+            ;; if{@duplicate, @fork{@get-canon{v}}, [@enter{v, false}; v]}
             if{@duplicate, @fork{@get-canon{v}}, v}
          undefined? when @duplicate ->
             @fork{@get-canon{v}}
@@ -134,7 +136,7 @@ class Directory:
       null? or undefined? ->
          value
       when not @duplicate and @get{value[ID]} ->
-         @get{value[ID]}
+         @enter{@get{value[ID]}, false}
       else ->
          deprox{value}[methods.fork]{@}
 
