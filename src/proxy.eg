@@ -74,8 +74,15 @@ setup-proxy{self, obj, tracks, patch, prevent-dirty-reads} =
    if patch:  patch[DIRECTORY]  or= obj[DIRECTORY]
 
    id = obj[ID]
-   self[fields.obj-tracks] = tracks and id and [tracks[id] or= {=}]
-   self[fields.obj-patch] = patch and patch.get-for{obj}
+
+   ;; self[fields.obj-tracks] = tracks and id and [tracks[id] or= {=}]
+   ;; self[fields.obj-patch] = patch and patch.get-for{obj}
+
+   Object.define-property{self, fields.obj-tracks} with
+      get{} = tracks and id and [tracks[id] or= {=}]
+   Object.define-property{self, fields.obj-patch} with
+      get{} = patch and patch.get-for{obj}
+
    if not self[fields.obj-patch]:
       self[fields.prevent-dirty-reads] = false
 
