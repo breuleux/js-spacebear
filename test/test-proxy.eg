@@ -40,20 +40,20 @@ did = donald[ID]
 describe "read-proxy":
 
    before-each:
-      @data = Tracks{} ;;{=}
-      @clara = read-proxy{clara, @data}
+      @tracks = Tracks{} ;;{=}
+      @clara = read-proxy{clara, @tracks}
 
    it "shallow":
       {@clara.name, @clara.age}
-      assert @data._data{} == {cid => {name = true, age = true}}
+      assert @tracks._data{} == {cid => {name = true, age = true}}
 
    it "methods":
       @clara.say-name{}
-      assert @data._data{} == {cid => {name = true}}
+      assert @tracks._data{} == {cid => {name = true}}
 
    it "deep":
       {@clara.name, @clara.mother.age}
-      assert @data._data{} == {
+      assert @tracks._data{} == {
          cid => {name = true, mother = true}
          aid => {age = true}
       }
@@ -68,7 +68,7 @@ describe "write-proxy":
    it "shallow":
       @clara.name = .clairette
       @clara.age = 21
-      assert @patch.data == {
+      assert @patch._data{} == {
          cid => {
             name = #update{.clairette}
             age = #update{21}
@@ -77,7 +77,7 @@ describe "write-proxy":
 
    it "methods":
       @clara.get-older{10}
-      assert @patch.data == {
+      assert @patch._data{} == {
          cid => {
             age = #update{30}
          }
@@ -86,7 +86,7 @@ describe "write-proxy":
    it "deep":
       @clara.name = .clairette
       @clara.mother.age = 21
-      assert @patch.data == {
+      assert @patch._data{} == {
          cid => {
             name = #update{.clairette}
          }
@@ -307,7 +307,7 @@ describe "array-proxy":
 
       it "set (3)":
          @p.get{0}.get{0}.name = .athena
-         assert @patch.data == {
+         assert @patch._data{} == {
             @id => {=}
             @id2 => {=}
             aid => {name = #update{.athena}}

@@ -312,18 +312,18 @@ describe "directory":
    describe "patch, duplicate = false":
 
       before-each:
-         @data = Patch{}
+         @patch = Patch{}
          @clara = @dir.acquire{clara}
-         @clarap = write-proxy{@clara, @data}
+         @clarap = write-proxy{@clara, @patch}
          @donald = @dir.acquire{donald}
-         @donaldp = write-proxy{@donald, @data}
+         @donaldp = write-proxy{@donald, @patch}
 
       it "updates mutable structures (shallow)":
          @clarap.name = .clairette
          @clarap.age = 21
          assert @clara.name == .clara
          assert @clara.age == 20
-         @dir.patch{@data}
+         @dir.patch{@patch}
          assert @clara.name == .clairette
          assert @clara.age == 21
 
@@ -332,7 +332,7 @@ describe "directory":
          @clarap.mother.age = 21
          assert @clara.name == .clara
          assert @clara.mother.age == 51
-         @dir.patch{@data}
+         @dir.patch{@patch}
          assert @clara.name == .clairette
          assert @clara.mother.age == 21
 
@@ -340,7 +340,7 @@ describe "directory":
          @clarap.name = .clairette
          @clarap.mother = emily
          assert @clara.mother.name == .alice
-         @dir.patch{@data}
+         @dir.patch{@patch}
          assert @clara.mother.name == .emily
          assert emily !== @clara.mother ;; it's a copy
 
@@ -349,13 +349,13 @@ describe "directory":
 
          ;; First round
          @donaldp.mother = emily
-         @dir.patch{@data}
+         @dir.patch{@patch}
 
          ;; Second round
-         @data = Patch{}
-         @donaldp = write-proxy{@donald, @data}
+         @patch = Patch{}
+         @donaldp = write-proxy{@donald, @patch}
          @donaldp.mother.age = 900
-         @dir.patch{@data}
+         @dir.patch{@patch}
 
          assert @donald.mother == {name = .emily, age = 900}
          assert @donald.father == alice
@@ -365,13 +365,13 @@ describe "directory":
 
          ;; First round
          @clarap.mother.age = 900
-         @dir.patch{@data}
+         @dir.patch{@patch}
 
          ;; Second round
-         @data = Patch{}
-         @clarap = write-proxy{@clara, @data}
+         @patch = Patch{}
+         @clarap = write-proxy{@clara, @patch}
          @clarap.father = alice
-         @dir.patch{@data}
+         @dir.patch{@patch}
 
          assert @clara.mother == {name = .alice, age = 900}
          assert @clara.father == {name = .alice, age = 900}
@@ -380,11 +380,11 @@ describe "directory":
    describe "patch, duplicate = true":
 
       before-each:
-         @data = Patch{}
+         @patch = Patch{}
          @clara = @dir2.acquire{clara}
-         @clarap = write-proxy{@clara, @data}
+         @clarap = write-proxy{@clara, @patch}
          @donald = @dir2.acquire{donald}
-         @donaldp = write-proxy{@donald, @data}
+         @donaldp = write-proxy{@donald, @patch}
 
       it "updates all instances of an object":
          {=> mother, => father} = @donald
@@ -394,7 +394,7 @@ describe "directory":
          @donaldp.mother.age = 21
          assert mother.age == 51
          assert father.age == 51
-         @dir2.patch{@data}
+         @dir2.patch{@patch}
          ;; donald's mother is also his father
          assert mother.age == 21
          assert father.age == 21
@@ -403,7 +403,7 @@ describe "directory":
          {=> mother, => father} = @clara
          @clarap.mother = @clarap.father
          @clarap.father.age = 66
-         @dir2.patch{@data}
+         @dir2.patch{@patch}
          assert @clara.mother == @clara.father
          assert @clara.mother !== @clara.father
 
@@ -412,13 +412,13 @@ describe "directory":
 
          ;; First round
          @donaldp.mother = emily
-         @dir2.patch{@data}
+         @dir2.patch{@patch}
 
          ;; Second round
-         @data = Patch{}
-         @donaldp = write-proxy{@donald, @data}
+         @patch = Patch{}
+         @donaldp = write-proxy{@donald, @patch}
          @donaldp.mother.age = 900
-         @dir2.patch{@data}
+         @dir2.patch{@patch}
 
          assert @donald.mother == {name = .emily, age = 900}
          assert @donald.father == alice
@@ -428,13 +428,13 @@ describe "directory":
 
          ;; First round
          @clarap.mother.age = 900
-         @dir2.patch{@data}
+         @dir2.patch{@patch}
 
          ;; Second round
-         @data = Patch{}
-         @clarap = write-proxy{@clara, @data}
+         @patch = Patch{}
+         @clarap = write-proxy{@clara, @patch}
          @clarap.father = alice
-         @dir2.patch{@data}
+         @dir2.patch{@patch}
 
          assert @clara.mother == {name = .alice, age = 900}
          assert @clara.father == {name = .alice, age = 900}
