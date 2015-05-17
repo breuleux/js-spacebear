@@ -175,10 +175,10 @@ class System:
       @vdir.patch{new-patch}
 
    transact{fn, Array! roots = {@basis}} =
-      let patch = Patch{} ;; {=}
-      proxies = roots each root -> write-proxy{root, patch}
+      @push{}
+      proxies = roots each root -> write-proxy{root, @patch}
       fn.apply{this, proxies}
-      @apply-patch{patch}
+      @commit{}
 
 
 reactive-function{render} =
