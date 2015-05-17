@@ -1,7 +1,7 @@
 
 require:
    "./proxy" ->
-      Patch
+      Patch, Tracks
       proxy, deprox, reprox
       read-proxy, write-proxy
    "./iter" ->
@@ -105,7 +105,7 @@ class Reactive:
       cached
 
    render-cache-object{the-self, args} =
-      deps = {=}
+      deps = Tracks{} ;;{=}
       ;; pargs = args each deprox! arg -> read-proxy{arg, deps}
       pargs = args each arg -> reprox{arg, deps, null}
       self-prox = reprox{the-self, deps, null}

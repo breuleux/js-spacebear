@@ -12,7 +12,7 @@ require:
    "../src/index" ->
       identify
       make-struct
-      Patch, proxy, read-proxy, write-proxy
+      Patch, Tracks, proxy, read-proxy, write-proxy
       Directory
       changed-relevantly, intersect
       ID, FORKID, DIRECTORY
@@ -479,7 +479,7 @@ describe "directory":
             identify! @a = {1, 2, 3}
             identify! @b = {4, 5, 6}
             identify! @c = @dir.acquire with {@a, @b}
-            @tracks = {=}
+            @tracks = Tracks{} ;;{=}
             @patch = Patch{}
             @p = proxy{@c, @tracks, @patch}
 

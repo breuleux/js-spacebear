@@ -10,7 +10,7 @@ provide:
 intersect{tracks, patch, dir} =
    patch.list{} each {id, writes} ->
       obj = dir.get{id}
-      reads = tracks[id]
+      reads = tracks.get{id}
       if reads and changed-relevantly{obj, reads, writes}:
          return true
    false

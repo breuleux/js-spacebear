@@ -7,7 +7,7 @@ require:
       methods, fields
 
 provide:
-   Patch
+   Patch, Tracks
    proxy, deprox, reprox
    object-proxy, array-proxy
    read-proxy, write-proxy
@@ -17,6 +17,7 @@ provide:
 class Patch:
    constructor{@data = {=}} =
       pass
+   _data{} = @data
    get{id} =
       @data[id] or= {=}
    get-for{obj} =
@@ -27,6 +28,22 @@ class Patch:
       {expr-value, @data} = {@data, new-data}
    list{} =
       items{@data}
+
+
+class Tracks:
+   constructor{@data = {=}} =
+      pass
+   _data{} =
+      @data
+   get{id} =
+      id and [@data[id] or= {=}]
+   get-for{obj} =
+      if not obj: return null
+      id = obj[ID]
+      id and [@data[id] or= {=}]
+   list{} =
+      items{@data}
+
 
 
 proxy{match value, tracks, patch, prevent-dirty-reads = true} =
@@ -79,7 +96,8 @@ setup-proxy{self, obj, tracks, patch, prevent-dirty-reads} =
    ;; self[fields.obj-patch] = patch and patch.get-for{obj}
 
    Object.define-property{self, fields.obj-tracks} with
-      get{} = tracks and id and [tracks[id] or= {=}]
+      get{} = tracks and tracks.get-for{obj}
+   ;; tracks and id and [tracks[id] or= {=}]
    Object.define-property{self, fields.obj-patch} with
       get{} = patch and patch.get-for{obj}
 

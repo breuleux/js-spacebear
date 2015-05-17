@@ -10,7 +10,7 @@ require:
    "./struct" ->
       make-struct, struct
    "./proxy" ->
-      Patch
+      Patch, Tracks
       proxy, deprox, reprox
       read-proxy, write-proxy
    "./iter" ->
@@ -32,7 +32,8 @@ provide:
    ID, FORKID, VERSION, SOURCE, DIRECTORY, CACHE
    methods, fields
    make-struct, struct
-   Patch, proxy, deprox, reprox
+   Patch, Tracks
+   proxy, deprox, reprox
    read-proxy, write-proxy
    Directory
    iterate-properties

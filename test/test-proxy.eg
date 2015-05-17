@@ -15,7 +15,7 @@ require:
       Directory
       changed-relevantly, intersect
       ID, FORKID
-      Patch
+      Patch, Tracks
 
 
 class Person:
@@ -40,20 +40,20 @@ did = donald[ID]
 describe "read-proxy":
 
    before-each:
-      @data = {=}
+      @data = Tracks{} ;;{=}
       @clara = read-proxy{clara, @data}
 
    it "shallow":
       {@clara.name, @clara.age}
-      assert @data == {cid => {name = true, age = true}}
+      assert @data._data{} == {cid => {name = true, age = true}}
 
    it "methods":
       @clara.say-name{}
-      assert @data == {cid => {name = true}}
+      assert @data._data{} == {cid => {name = true}}
 
    it "deep":
       {@clara.name, @clara.mother.age}
-      assert @data == {
+      assert @data._data{} == {
          cid => {name = true, mother = true}
          aid => {age = true}
       }
@@ -107,25 +107,25 @@ describe "array-proxy":
    describe "read":
 
       before-each:
-         @tracks = {=}
+         @tracks = Tracks{} ;;{=}
          @arr = {1, 2, 3}
          @p = read-proxy{@arr, @tracks}
          @id = @arr[ID]
          @assert-iter{start = 0, end = 3, sticky = true} =
-            assert @tracks == {
+            assert @tracks._data{} == {
                @id => {"@iter" => {start, end, sticky}}
             }
 
       it "get":
          assert @p.get{0} === 1
          assert @p.get{1} === 2
-         assert @tracks == {
+         assert @tracks._data{} == {
             @id => {0 => true, 1 => true}
          }
 
       it "length":
          assert @p.length === 3
-         assert @tracks == {
+         assert @tracks._data{} == {
             @id => {length = true}
          }
 
@@ -170,7 +170,7 @@ describe "array-proxy":
    describe "read (deep)":
 
       before-each:
-         @tracks = {=}
+         @tracks = Tracks{} ;; {=}
          @arr = {identify! {alice}, bob, clara}
          @p = read-proxy{@arr, @tracks}
          @id = @arr[ID]
@@ -178,14 +178,14 @@ describe "array-proxy":
 
       it "get":
          {=> name, => age} = @p.get{1}
-         assert @tracks == {
+         assert @tracks._data{} == {
             @id => {1 => true}
             bid => {name = true, age = true}
          }
 
       it "get (2)":
          @p.get{0}.get{0}.name
-         assert @tracks == {
+         assert @tracks._data{} == {
             @id => {0 => true}
             @id2 => {0 => true}
             aid => {name = true}
@@ -193,7 +193,7 @@ describe "array-proxy":
 
       it "subslice":
          @p.slice{1} each entry -> entry.name
-         assert @tracks == {
+         assert @tracks._data{} == {
             @id => {"@iter" => {1, 3, true}}
             bid => {name = true}
             cid => {name = true}
