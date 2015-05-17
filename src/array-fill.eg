@@ -45,9 +45,9 @@ Array.prototype[methods.patch]{p, dir, wrapper = this} =
          previous = arr.splice{i, n}
          var acq =
             zip{repl.slice{0, previous.length}, previous} each {newv, oldv} ->
-               dir.replace{oldv, newv}
+               dir.replace{oldv, deprox{newv}}
          acq ++= repl.slice{previous.length} each newv ->
-            dir.acquire{newv}
+            dir.acquire{deprox{newv}}
          previous.slice{repl.length} each oldv ->
             dir.exit{oldv}
          arr.splice{i, 0, *acq}

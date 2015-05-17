@@ -40,7 +40,7 @@ Object.prototype[methods.patch]{p, dir, wrapper = this} =
    match p.get-for{wrapper}:
       undefined? -> pass
       items! [each {field, match}] ->
-         #update{value} ->
+         #update{deprox! value} ->
             obj[field] = dir.replace{obj[field], value}
    obj
 

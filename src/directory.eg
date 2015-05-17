@@ -114,7 +114,7 @@ class Directory:
             @fork{@get-canon{v}}
          undefined? ->
             @enter{v}
-            iterate-properties{v} each {k, v2, replace} ->
+            iterate-properties{v} each {k, deprox! v2, replace} ->
                match @acquire{v2}:
                   !== v2 ->
                      throw E.acquire with
