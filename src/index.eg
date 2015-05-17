@@ -30,7 +30,7 @@ require:
 provide:
    identify, tuck
    ID, FORKID, VERSION, SOURCE, DIRECTORY, CACHE
-   methods
+   methods, fields
    make-struct, struct
    Patch, proxy, deprox, reprox
    read-proxy, write-proxy
