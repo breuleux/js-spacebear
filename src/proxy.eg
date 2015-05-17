@@ -207,6 +207,10 @@ class array-proxy:
       [@] each x -> fn{x}
       undefined
 
+   index-of{deprox! elem} =
+      @_update-iter{self[fields.obj-tracks]["@iter"], 0, @length, true}
+      self[fields.obj].index-of{elem}
+
    map{fn} =
       [@] each x -> fn{x}
 
@@ -220,6 +224,11 @@ class array-proxy:
 
    set{i, new-value} =
       @_splice{i, 1, {new-value}, false}
+
+   remove{deprox! elem} =
+      idx = self[fields.obj].index-of{elem}
+      if idx !== -1:
+         @splice{idx, 1}
 
    pop{n = 1} =
       @_splice{self[fields.obj].length - n, n, {}, false}
@@ -236,6 +245,9 @@ class array-proxy:
 
    replace{new-array} =
       @_splice{0, self[fields.obj].length, new-array, false}
+
+   ;; remove{i, new-value} =
+   ;;    @_splice{i, 1, {new-value}, false}
 
    ._splice{i, n, values, pos = false} =
       emsg = 'Inconsistent splicing (this may happen if you modify'
