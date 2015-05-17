@@ -100,7 +100,7 @@ class Reactive:
             undefined? or [== true is force] ->
                @render-cache-object{the-self, args}
             cached ->
-               cached
+               get-replacement{cached}
       @argmap[key] = cached
       cached
 
@@ -108,9 +108,10 @@ class Reactive:
       deps = {=}
       ;; pargs = args each deprox! arg -> read-proxy{arg, deps}
       pargs = args each arg -> reprox{arg, deps, null}
+      self-prox = reprox{the-self, deps, null}
       {=> version = null} = deps[DIRECTORY]
-      res = identify{@renderfn.apply{the-self, pargs}}
-      cached = CachedResult{@, reprox{the-self, deps, null}, args, res, deps, version}
+      res = identify{@renderfn.apply{self-prox, pargs}}
+      cached = CachedResult{@, the-self, args, res, deps, version}
       tuck{res, CACHE, cached}
       cached
 
