@@ -1,6 +1,7 @@
 
 require:
-   lodash -> flatten
+   lodash ->
+      flatten, kebab-case
    "./util" ->
       ID, CACHE, tuck, identify, fork-identify, methods
    "./directory" ->
@@ -63,6 +64,10 @@ class VNode:
    set-attribute{match attr, value} =
       do:
          if not @dom-node: return
+      .style when not String? value ->
+         @dom-node.set-attribute{.style, props.join{";"}} where
+            props = items{value} each {k, v} ->
+               '{kebab-case{k}}:{v}'
       .class or .class-name ->
          @dom-node.class-name = value.join{" "}
       .id or .value or R"^on"? ->
