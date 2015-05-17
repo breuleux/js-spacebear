@@ -15,3 +15,4 @@ inert each proto ->
    proto[methods.patch]{p, dir} = pass
    proto[methods.clobber]{new, dir} = new
    proto[methods.iterate-properties]{} = {}
+   ;; proto[methods.changed-relevantly]{reads, writes} = false

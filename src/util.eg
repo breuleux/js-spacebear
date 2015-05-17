@@ -29,6 +29,7 @@ methods = {
    fork = Symbol{.fork}
    patch = Symbol{.patch}
    clobber = Symbol{.clobber}
+   changed-relevantly = Symbol{.changed-relevantly}
 }
 
 fields = {

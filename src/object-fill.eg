@@ -80,3 +80,11 @@ Object.prototype[methods.iterate-properties]{wrapper = this} =
       {k, v, gen-patch} where
          gen-patch{patch, new-v} =
             patch.get{id}[k] = #update{new-v}
+
+
+Object.prototype[methods.changed-relevantly]{reads, writes} =
+   items{writes or {=}} each
+      {name, _} when reads[name] ->
+         return true
+   false
+
