@@ -47,10 +47,10 @@ is written in the Earl Grey language):
           input %
              value = todo.description
              on-change(e) =
-                transact todo: todo.description = e.target.value
+                transact: todo.description = e.target.value
           button % 'Add #{entries.length}'
           on-submit() =
-             transact {entries, todo}:
+             transact:
                 entries.push with {done = false, description = todo.description}
                 todo.description = ""
     
