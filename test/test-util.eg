@@ -34,5 +34,15 @@ describe "longest-run":
    it "alternate compare":
       test-lr{{5, 4, 3, 2, 1}, {5, 4, 3, 2, 1}, {x, y} -> x > y, 1/0}
 
+   ;; it "very long sequence":
+   ;;    1..1000 each n ->
+   ;;       start = +[new Date{}]
+   ;;       a = 1..n each i -> Math.random{}
+   ;;       b = 1..n each i -> i
+   ;;       ;; test-lr{a, b}
+   ;;       longest-run{a, {x, y} -> x < y, -1/0}
+   ;;       end = +[new Date{}]
+   ;;       print {n, [end - start] / n}
+
 
 
