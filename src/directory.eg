@@ -1,5 +1,8 @@
 
 require:
+   "./object-fill" -> object-clobber-helper
+   "./array-fill" -> array-clobber-helper
+   "./misc-fill"
    "./util" ->
       identify, fork-identify, tuck
       next-id, ID, FORKID, VERSION, DIRECTORY, CACHE
@@ -9,7 +12,6 @@ require:
       deprox
    "./iter" ->
       iterate-properties
-
 
 provide:
    Directory
@@ -129,32 +131,20 @@ class Directory:
          x -> x
 
    fork{identify! match value} =
-      null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+      null? or undefined? ->
          value
       when not @duplicate and @get{value[ID]} ->
          @get{value[ID]}
-      {^methods.fork => Function?} ->
-         deprox{value}[methods.fork]{@}
-      Function? ->
-         value
-      Array? ->
-         array-fork{deprox{value}, @}
       else ->
-         object-fork{deprox{value}, @}
+         deprox{value}[methods.fork]{@}
 
    clobber{identify! match value, identify! new-value} =
-      null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+      null? or undefined? ->
          new-value
-      when value[ID] === new-value[ID] ->
+      when value[ID] and value[ID] === new-value[ID] ->
          value
-      {^methods.clobber => Function?} ->
-         deprox{value}[methods.clobber]{new-value, @}
-      Function? ->
-         new-value
-      Array? ->
-         array-clobber{deprox{value}, new-value, @}
       else ->
-         object-clobber{deprox{value}, new-value, @}
+         deprox{value}[methods.clobber]{new-value, @}
 
    replace{old-value, new-value} =
       if @clobber-patch:
@@ -175,209 +165,13 @@ class Directory:
             patch-shallow{obj, p, @}
 
 
-
-;;;;;;;;;;;;;;;;;;
-;; FORK HELPERS ;;
-;;;;;;;;;;;;;;;;;;
-
-object-fork{deprox! identify! obj, dir} =
-   rval = Object.create{Object.get-prototype-of{obj}}
-   {ID, CACHE} each field ->
-      tuck{rval, field, obj[field]}
-   fork-identify{rval}
-   dir.enter{rval, false}
-   items{obj} each {key, value} ->
-      rval[key] = dir.acquire{value}
-   rval
-
-array-fork{deprox! identify! arr, dir} =
-   rval = {}
-   {ID, CACHE} each field ->
-      tuck{rval, field, arr[field]}
-   fork-identify{rval}
-   dir.enter{rval, false}
-   arr each x ->
-      rval.push{dir.acquire{x}}
-   rval
-
-
-
 ;;;;;;;;;;;;;;;;;;;
 ;; PATCH HELPERS ;;
 ;;;;;;;;;;;;;;;;;;;
 
 patch-shallow{deprox! match value, p, dir} =
-   null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+   null? or undefined? -> ;; or Number? or String? or Symbol? or Boolean? ->
       pass
-   {^methods.patch => Function?} ->
+   else ->
       deprox{value}[methods.patch]{p, dir}
-   Array? arr ->
-      array-patch{arr, p, dir}
-   obj ->
-      object-patch{obj, p, dir}
-      undefined
 
-object-patch{obj, p, dir, wrapper = obj} =
-   identify{wrapper}
-   match p.get-for{wrapper}:
-      undefined? -> pass
-      items! [each {field, match}] ->
-         #update{value} ->
-            obj[field] = dir.replace{obj[field], value}
-   obj
-
-array-patch{arr, p, dir, wrapper = arr} =
-   identify{wrapper}
-   splices = p.get-for{wrapper}??["@splice"]
-   if not splices:
-      return
-   enumerate{splices}.reverse{} each {i, match} ->
-      {n, repl} ->
-         previous = arr.splice{i, n}
-         var acq =
-            zip{repl.slice{0, previous.length}, previous} each {newv, oldv} ->
-               dir.replace{oldv, newv}
-         acq ++= repl.slice{previous.length} each newv ->
-            dir.acquire{newv}
-         previous.slice{repl.length} each oldv ->
-            dir.exit{oldv}
-         arr.splice{i, 0, *acq}
-      else ->
-         pass
-   undefined
-
-
-
-;;;;;;;;;;;;;;;;;;;;;
-;; CLOBBER HELPERS ;;
-;;;;;;;;;;;;;;;;;;;;;
-
-object-clobber-helper{obj, new-obj, items, owns} =
-   operations = {}
-   items{obj} each
-      {k, v} when not owns{new-obj, k} ->
-         operations.push with #delete{k}
-   items{new-obj} each {k, match v} ->
-      do: v0 = obj[k]
-      === v0 or when v0 and v0[ID] and v and v[ID] == v0[ID] ->
-         pass
-      else ->
-         operations.push with #put{k, v}
-   operations
-
-object-clobber{obj, new-obj, dir} =
-
-   if Object.get-prototype-of{obj} !== Object.get-prototype-of{new-obj}:
-      return dir.acquire{new-obj}
-
-   dir.exit{obj}
-
-   object-clobber-helper{
-      obj, new-obj, items
-      {a, b} -> Object.has-own-property.call{a, b}
-   } each
-      #delete{k} ->
-         delete obj[k]
-      #put{k, v} ->
-         obj[k] = dir.clobber{obj[k], v}
-
-   tuck{obj, ID, new-obj[ID]}
-   dir.enter{obj}
-
-   obj
-
-
-array-clobber-helper{arr, new-arr, duplicate = true} =
-
-   ;; 1. For each element of the new array, find the index of the
-   ;; corresponding element in the old array.
-
-   ;; 2. Find the longest filtering of the array of indices such
-   ;; that the indices are in order.
-
-   ;; 3. Splice the data around these fixed points, which should
-   ;; amount to the minimal splicing that transforms the array
-
-   idpos = {=}
-   enumerate{arr} each {i, match x} ->
-      {^ID => Number? id} -> idpos[id] = {i, x}
-      else -> continue
-
-   indices = enumerate{new-arr} each {i, match x} ->
-      {^ID => Number? id} when idpos[id] -> {i, idpos[id][0]}
-      else -> continue
-
-   run = longest-run{indices, cmp, {-1, -1}} where
-      cmp{{_, p1}, {_, p2}} = p1 < p2
-
-   newids = {=}
-   new-arr each x and {^ID => Number? id} when true ->
-      newids[id] = true
-   disposable = {=}
-   arr each x and {^ID => Number? id} when not newids[id] ->
-      disposable[id] = true
-
-   if duplicate:
-      run each {new-i, old-i} ->
-         ;; These will be automatically preserved
-         delete idpos[arr[old-i][ID]]
-
-   run.push with {new-arr.length, arr.length}
-
-   var old-current = 0
-   var new-current = 0
-
-   operations = {}
-   run each {new-i, old-i} ->
-      var n = old-i - old-current
-      fresh = new-arr.slice{new-current, new-i}
-
-      ;; Clobber what we can, shifting the splice
-      while n > 0 and old-current < old-i and fresh.length > 0:
-         match arr[old-current]:
-            x and {^ID => Number? id} when disposable[id] ->
-               operations.push with #clobber{new-current, fresh.shift{}}
-               old-current += 1
-               new-current += 1
-               n -= 1
-            else ->
-               break
-
-      ;; But now we have to replace a slice
-      inserts = fresh each
-         entry and {_, orig} is idpos[entry[ID] or -1] when duplicate ->
-            ;; We can recover this entry; however dir.duplicate prevents
-            ;; us from having the same reference more than once in the
-            ;; tree, so we remove it from idpos so we can't reuse it.
-            delete idpos[entry[ID]]
-            #keep{orig}
-         entry ->
-            #acquire{entry}
-
-      operations.push with
-         #splice{new-current, n, inserts}
-      old-current = old-i + 1
-      new-current = new-i + 1
-
-   operations
-
-
-array-clobber{arr, new-arr, dir} =
-
-   if not Array? new-arr:
-      return dir.acquire{new-arr}
-
-   dir.exit{arr}
-
-   array-clobber-helper{arr, new-arr, dir.duplicate} each
-      #clobber{i, value} ->
-         arr[i] = dir.clobber{arr[i], value}
-      #splice{var start, var n, inserts} ->
-         arr.splice{start, n, *acquired} where
-            acquired = inserts each
-               #keep{x} -> x
-               #acquire{x} -> dir.acquire{x}
-
-   tuck{arr, ID, new-arr[ID]}
-   dir.enter{arr}
-   arr

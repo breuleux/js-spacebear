@@ -1,0 +1,16 @@
+
+require:
+   "./util" -> methods
+
+inert = {
+   Function.prototype
+   String.prototype
+   Symbol.prototype
+   Number.prototype
+   Boolean.prototype
+}
+
+inert each proto ->
+   proto[methods.fork]{dir} = this
+   proto[methods.patch]{p, dir} = pass
+   proto[methods.clobber]{new, dir} = new
