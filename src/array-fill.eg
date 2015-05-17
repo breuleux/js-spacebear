@@ -144,3 +144,14 @@ Array.prototype[methods.clobber]{new-arr, dir} =
    tuck{arr, ID, new-arr[ID]}
    dir.enter{arr}
    arr
+
+
+Array.prototype[methods.iterate-properties]{wrapper = this} =
+   arr = this
+   id = wrapper[ID]
+   enumerate{arr} each {i, v} ->
+      {i, v, gen-patch} where
+         gen-patch{patch, new-v} =
+            ap = patch.get{id}
+            ap["@splice"] or= Array{arr.length + 1}
+            ap["@splice"][i] = {1, {new-v}}

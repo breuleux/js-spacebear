@@ -14,3 +14,4 @@ inert each proto ->
    proto[methods.fork]{dir} = this
    proto[methods.patch]{p, dir} = pass
    proto[methods.clobber]{new, dir} = new
+   proto[methods.iterate-properties]{} = {}

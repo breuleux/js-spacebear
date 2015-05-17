@@ -7,42 +7,11 @@ require:
 
 provide:
    iterate-properties
-   object-iterate-properties
-   array-iterate-properties
 
 
 iterate-properties{match obj} =
-
-   null? or undefined? or Number? or String? or Symbol? or Boolean? ->
+   null? or undefined? ->
       {}
-
-   Object.is-frozen? ->
-      throw E.spacebear.patch with
-         'Cannot iterate frozen objects.'
-
-   {^methods.iterate-properties => Function?} ->
-      deprox{obj}[methods.iterate-properties]{}
-
-   Array? arr ->
-      array-iterate-properties{deprox{arr}}
-
    else ->
-      object-iterate-properties{deprox{obj}}
-
-
-object-iterate-properties{obj, wrapper = obj} =
-   id = wrapper[ID]
-   items{obj} each {k, v} ->
-      {k, v, gen-patch} where
-         gen-patch{patch, new-v} =
-            patch.get{id}[k] = #update{new-v}
-
-array-iterate-properties{arr, wrapper = arr} =
-   id = wrapper[ID]
-   enumerate{arr} each {i, v} ->
-      {i, v, gen-patch} where
-         gen-patch{patch, new-v} =
-            ap = patch.get{id}
-            ap["@splice"] or= Array{arr.length + 1}
-            ap["@splice"][i] = {1, {new-v}}
+      deprox{obj}[methods.iterate-properties]{}
 
