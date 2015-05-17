@@ -74,6 +74,39 @@ describe "directory":
             {a, b, c, d, e} each entry ->
                assert @dir.get-all{entry[ID]} == {}
 
+         it "initial reference counting":
+            a = {ID => 1, x = 1, y = 2}
+            b = {ID => 2, a1 = a, a2 = a}
+            @dir.acquire{b}
+            {{a, 2}, {b, 1}} each {entry, count} ->
+               assert @dir.dir[entry[ID]][0] == count
+
+         it "initial reference counting (2)":
+            a = {ID => 1, x = 1, y = 2}
+            b = {ID => 2, x = {{a1 = a}}, y = {{{a, a, a}}}}
+            @dir.acquire{b}
+            {{a, 4}, {b, 1}} each {entry, count} ->
+               assert @dir.dir[entry[ID]][0] == count
+
+         it "acquire-copy reference counting":
+            people and {olivier, patricia} = {
+               {name = "Olivier", present = true}
+               {name = "Patricia", present = true}
+            }
+
+            init = {
+               people = people
+               current = olivier
+               lines = {
+                  {poster = olivier, text = "Hello Patricia!"}
+                  {poster = patricia, text = "Hello Olivier!"}
+               }
+               next-line = ""
+            }
+
+            @dir.acquire-copy{init}
+            {{olivier, 3}, {patricia, 2}} each {entry, count} ->
+               assert @dir.dir[entry[ID]][0] == count
 
       describe "= true":
          it "acquires the same object more than once":
