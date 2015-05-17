@@ -14,6 +14,10 @@ provide:
    array-clobber-helper
 
 
+;;;;;;;;;;
+;; FORK ;;
+;;;;;;;;;;
+
 Array.prototype[methods.fork]{dir} =
    arr = this
    rval = {}
@@ -25,6 +29,10 @@ Array.prototype[methods.fork]{dir} =
       rval.push{dir.acquire{x}}
    rval
 
+
+;;;;;;;;;;;
+;; PATCH ;;
+;;;;;;;;;;;
 
 Array.prototype[methods.patch]{p, dir, wrapper = this} =
    arr = this
@@ -47,6 +55,10 @@ Array.prototype[methods.patch]{p, dir, wrapper = this} =
          pass
    undefined
 
+
+;;;;;;;;;;;;;
+;; CLOBBER ;;
+;;;;;;;;;;;;;
 
 array-clobber-helper{arr, new-arr, duplicate = true} =
 
@@ -146,6 +158,10 @@ Array.prototype[methods.clobber]{new-arr, dir} =
    arr
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;
+;; ITERATE-PROPERTIES ;;
+;;;;;;;;;;;;;;;;;;;;;;;;
+
 Array.prototype[methods.iterate-properties]{wrapper = this} =
    arr = this
    id = wrapper[ID]
@@ -156,6 +172,10 @@ Array.prototype[methods.iterate-properties]{wrapper = this} =
             ap["@splice"] or= Array{arr.length + 1}
             ap["@splice"][i] = {1, {new-v}}
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;
+;; CHANGED-RELEVANTLY ;;
+;;;;;;;;;;;;;;;;;;;;;;;;
 
 Array.prototype[methods.changed-relevantly]{reads, writes} =
    match writes["@splice"]:
