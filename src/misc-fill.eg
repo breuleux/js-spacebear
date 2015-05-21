@@ -11,6 +11,7 @@ inert = {
 }
 
 inert each proto ->
+   proto[methods.proxy]{tracks, patch, prevent-dirty-reads} = this
    proto[methods.fork]{dir} = this
    proto[methods.patch]{p, dir} = pass
    proto[methods.clobber]{new, dir} = new
