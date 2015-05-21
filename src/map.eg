@@ -1,7 +1,7 @@
 
 require:
    .util ->
-      tuck
+      tuck, fork-identify
       ID, CACHE
       methods, fields
    .proxy ->
@@ -23,6 +23,9 @@ class Map:
    set{String? key or Number? key, value} =
       @data[key] = value
 
+   del{key} =
+      delete @data[key]
+
    items{} =
       items{@data}
 
@@ -36,6 +39,7 @@ class Map:
       rval = Map{}
       {ID, CACHE} each field ->
          tuck{rval, field, @[field]}
+      fork-identify{rval}
       dir.enter{rval, false}
       items{@} each {key, value} ->
          rval.data[key] = dir.acquire{value}
@@ -60,11 +64,44 @@ class Map:
       dir.enter{@}
       @
 
-
-
+   [^methods.changed-relevantly]{reads, writes} =
+      items{writes or {=}} each
+         {name, _} when reads[name] ->
+            return true
+         when reads["@iter"] ->
+            return true
+      false
 
 
 
 class MapProxy:
+
    constructor{obj, tracks, patch, prevent-dirty-reads = true} =
-      pass
+      setup-proxy{@, obj, tracks, patch, prevent-dirty-reads}
+
+   get{key} =
+      if @[fields.prevent-dirty-reads] and @[fields.obj-patch][key]:
+         throw E.invalid_access with
+            '''Cannot access key '{key}' after setting it.'''
+      if @[fields.obj-tracks]: @[fields.obj-tracks][key] = true
+      proxy{@[fields.obj][key]
+            @[fields.tracks]
+            @[fields.patch]
+            @[fields.prevent-dirty-reads]}
+
+   set{key, value} =
+      if @[fields.obj-patch]:
+         @[fields.obj-patch][key] = #update{deprox{new-value}}
+
+   del{key} =
+      if @[fields.obj-patch]:
+         @[fields.obj-patch][key] = #delete{}
+
+   items{} =
+      if @[fields.obj-tracks]: @[fields.obj-tracks]["@iter"] = true
+      @[fields.obj].items{} each {k, v} ->
+         {k, proxy{v
+                   @[fields.tracks]
+                   @[fields.patch]
+                   @[fields.prevent-dirty-reads]}}
+
