@@ -11,6 +11,7 @@ provide:
    proxy, deprox, reprox
    object-proxy, array-proxy
    read-proxy, write-proxy
+   setup-proxy
 
 
 
