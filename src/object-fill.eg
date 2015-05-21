@@ -42,7 +42,7 @@ Object.prototype[methods.patch]{p, dir, wrapper = this} =
       items! [each {field, match}] ->
          #update{deprox! value} ->
             obj[field] = dir.replace{obj[field], value}
-         #delete{deprox! value} ->
+         #delete{} ->
             dir.exit{obj[field]}
             delete obj[field]
    obj
