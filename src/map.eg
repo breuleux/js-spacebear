@@ -1,0 +1,70 @@
+
+require:
+   .util ->
+      tuck
+      ID, CACHE
+      methods, fields
+   .proxy ->
+      setup-proxy
+   .object-fill ->
+      object-clobber-helper
+
+provide:
+   Map
+
+class Map:
+
+   constructor{} =
+      @data = {=}
+
+   get{key} =
+      @data[key]
+
+   set{String? key or Number? key, value} =
+      @data[key] = value
+
+   items{} =
+      items{@data}
+
+   [^methods.proxy]{tracks, patch, prevent-dirty-reads} =
+      MapProxy{tracks, patch, prevent-dirty-reads}
+
+   [^methods.iterate-properties]{} =
+      Object.prototype[methods.iterate-properties].call{@data, @}
+
+   [^methods.fork]{dir} =
+      rval = Map{}
+      {ID, CACHE} each field ->
+         tuck{rval, field, @[field]}
+      dir.enter{rval, false}
+      items{@} each {key, value} ->
+         rval.data[key] = dir.acquire{value}
+      rval
+
+   [^methods.patch]{patch, dir} =
+      Object.prototype[methods.patch].call{@data, patch, dir, @}
+
+   [^methods.clobber]{new-map, dir} =
+      if not Map? new-map:
+         return dir.acquire{new-map}
+      dir.exit{@}
+      object-clobber-helper{
+         @data, new-map.data, items
+         {a, b} -> Object.has-own-property.call{a, b}
+      } each
+         #delete{k} ->
+            delete @data[k]
+         #put{k, v} ->
+            @data[k] = dir.clobber{@data[k], v}
+      tuck{@, ID, new-map[ID]}
+      dir.enter{@}
+      @
+
+
+
+
+
+
+class MapProxy:
+   constructor{obj, tracks, patch, prevent-dirty-reads = true} =
+      pass
