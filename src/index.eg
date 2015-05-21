@@ -26,6 +26,8 @@ require:
    "./reactive" ->
       System, reactive-function
       current-system
+   .map ->
+      Map
 
 provide:
    identify, tuck
@@ -43,6 +45,7 @@ provide:
    VNode, EVNode as ENode
    System, reactive-function
    current-system
+   Map
 
    percent as [%]
    reactive

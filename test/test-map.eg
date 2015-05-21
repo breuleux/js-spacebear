@@ -1,0 +1,127 @@
+
+require-macros:
+   earl-mocha ->
+      describe, it, before, after, before-each, after-each
+      xdescribe, xit
+      assert, asserts
+      expect-error
+   ..src/index -> reactive
+
+require:
+   ..src/index ->
+      identify, deprox
+      make-struct, read-proxy, write-proxy
+      Directory
+      changed-relevantly, intersect
+      ID, FORKID
+      Patch, Tracks
+      Map
+      System
+
+describe "Map":
+
+   it "get":
+      m = Map{hello = 1, world = 2}
+      assert m.get{.hello} == 1
+      assert m.get{.world} == 2
+
+   it "set":
+      m = Map{}
+      m.set{.hello, 1}
+      m.set{.world, 2}
+      assert m.get{.hello} == 1
+      assert m.get{.world} == 2
+
+   it "items":
+      m = Map{hello = 1, world = 2}
+      assert m.items{} == {{.hello, 1}, {.world, 2}}
+
+   it "delete":
+      m = Map{hello = 1, world = 2}
+      m.delete{.hello}
+      assert m.items{} == {{.world, 2}}
+
+
+describe "MapProxy":
+
+   describe "read":
+
+      before-each:
+         @tracks = Tracks{}
+         @m = Map{a = 1, b = 2}
+         @p = read-proxy{@m, @tracks}
+         @id = @m[ID]
+
+      it "get":
+         assert @p.get{.a} === 1
+         assert @p.get{.b} === 2
+         assert @tracks._data{} == {
+            @id => {a = true, b = true}
+         }
+
+      it "items":
+         assert @p.items{} == {{.a, 1}, {.b, 2}}
+         assert @tracks._data{} == {
+            @id => {"@iter" => true}
+         }
+
+   describe "write":
+
+      before-each:
+         @patch = Patch{}
+         @m = Map{a = 1, b = 2}
+         @p = write-proxy{@m, @patch}
+         @id = @m[ID]
+
+      it "set":
+         @p.set{.a, 11}
+         @p.set{.c, 33}
+         assert @patch._data{} == {@id => {
+            a = #update{11}
+            c = #update{33}
+         }}
+
+      it "delete":
+         @p.delete{.b}
+         assert @patch._data{} == {@id => {
+            b = #delete{}
+         }}
+
+
+describe "reactive Map":
+
+   before-each:
+      reactive @say-name{person} =
+         {greeting = 'Hello, my name is {person.get{"name"}}!'}
+      reactive @details{person} =
+         person.items{} each {k, v} -> '{k} is {v}'
+      @clara = Map{name = "clara", age = 20}
+
+   it "initial":
+      sys = System{@clara, @say-name}
+      assert sys.get{} == {greeting = 'Hello, my name is clara!'}
+
+   it "set":
+      sys = System{@clara, @say-name}
+      sys.transact with {clara} ->
+         clara.set{.name, .clairette}
+      assert sys.get{} == {greeting = 'Hello, my name is clairette!'}
+
+   it "items":
+      sys = System{@clara, @details}
+      assert sys.get{} == {'name is clara', 'age is 20'}
+
+   it "items then set field":
+      sys = System{@clara, @details}
+      sys.transact with {clara} ->
+         clara.set{.age, 30}
+      assert sys.get{} == {'name is clara', 'age is 30'}
+
+   it "items then add and delete field":
+      sys = System{@clara, @details}
+      sys.transact with {clara} ->
+         clara.set{.nom, .clairette}
+         clara.delete{.name}
+         clara.delete{.age}
+      assert sys.get{} == {'nom is clairette'}
+
