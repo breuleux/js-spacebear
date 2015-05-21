@@ -5,10 +5,10 @@ require-macros:
       xdescribe, xit
       assert, asserts
       expect-error
-   ..src/index -> reactive
+   ..src -> reactive
 
 require:
-   ..src/index ->
+   ..src ->
       identify, deprox
       make-struct, read-proxy, write-proxy
       Directory

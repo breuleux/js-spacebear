@@ -1,6 +1,6 @@
 
 require:
-   "./util" ->
+   .util ->
       ID, CACHE, methods
       tuck, fork-identify
 

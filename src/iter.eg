@@ -1,8 +1,8 @@
 
 require:
-   "./util" ->
+   .util ->
       ID, methods
-   "./proxy" ->
+   .proxy ->
       deprox
 
 provide:

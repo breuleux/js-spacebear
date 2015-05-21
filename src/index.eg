@@ -1,9 +1,9 @@
 
 require:
-   "./object-fill"
-   "./array-fill"
-   "./misc-fill"
-   "./util" ->
+   .object-fill
+   .array-fill
+   .misc-fill
+   .util ->
       tuck, identify, next-id
       ID, FORKID, VERSION, SOURCE, DIRECTORY, CACHE
       methods, fields
@@ -13,15 +13,15 @@ require:
       Patch, Tracks
       proxy, deprox, reprox
       read-proxy, write-proxy
-   "./iter" ->
+   .iter ->
       iterate-properties
-   "./directory" ->
+   .directory ->
       Directory
-   "./relevant" ->
+   .relevant ->
       intersect, changed-relevantly
-   "./root" ->
+   .root ->
       Root
-   "./vdom" ->
+   .vdom ->
       VNode, ENode as EVNode
    "./reactive" ->
       System, reactive-function

@@ -4,17 +4,17 @@ require:
       Patch, Tracks
       proxy, deprox, reprox
       read-proxy, write-proxy
-   "./iter" ->
+   .iter ->
       iterate-properties
-   "./relevant" ->
+   .relevant ->
       intersect
-   "./directory" ->
+   .directory ->
       Directory
-   "./util" ->
+   .util ->
       tuck, identify, fork-identify
       ID, FORKID, VERSION, DIRECTORY, CACHE
       fields
-   "./root" ->
+   .root ->
       Root
 
 provide:

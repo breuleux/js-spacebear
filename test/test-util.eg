@@ -1,8 +1,6 @@
 
 
 require-macros:
-   "../src/struct" ->
-      struct
    earl-mocha ->
       describe, it, before, after, before-each, after-each
       xdescribe, xit
@@ -10,7 +8,7 @@ require-macros:
       expect-error
 
 require:
-   "../src/util" ->
+   ..src/util ->
       longest-run
 
 

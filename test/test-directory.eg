@@ -1,7 +1,5 @@
 
 require-macros:
-   "../src/struct" ->
-      struct
    earl-mocha ->
       describe, it, before, after, before-each, after-each
       xdescribe, xit
@@ -9,14 +7,13 @@ require-macros:
       expect-error
 
 require:
-   "../src/index" ->
+   ..src ->
       identify
-      make-struct
       Patch, Tracks, proxy, read-proxy, write-proxy
       Directory
       changed-relevantly, intersect
       ID, FORKID, DIRECTORY
-   "./people" ->
+   .people ->
       alice, bob, clara, donald, emily, francis, gerard, helen
       aid, bid, cid, did, eid, fid, gid, hid
 
@@ -89,7 +86,7 @@ describe "directory":
                assert @dir.dir[entry[ID]][0] == count
 
          it "acquire-copy reference counting":
-            people and {olivier, patricia} = {
+            let people and {olivier, patricia} = {
                {name = "Olivier", present = true}
                {name = "Patricia", present = true}
             }

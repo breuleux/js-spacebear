@@ -1,13 +1,13 @@
 
 require:
-   "./util" ->
+   .util ->
       identify, fork-identify, tuck
       next-id, ID, FORKID, VERSION, DIRECTORY, CACHE
       methods
       longest-run
-   "./proxy" ->
+   .proxy ->
       deprox
-   "./iter" ->
+   .iter ->
       iterate-properties
 
 provide:

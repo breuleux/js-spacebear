@@ -1,6 +1,6 @@
 
 require:
-   "./util" ->
+   .util ->
       tuck, identify, next-id, ID, FORKID, VERSION, SOURCE
 
 provide:

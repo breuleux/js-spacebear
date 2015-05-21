@@ -1,6 +1,6 @@
 
 require:
-   "./util" -> methods
+   .util -> methods
 
 inert = {
    Function.prototype

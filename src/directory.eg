@@ -1,16 +1,16 @@
 
 require:
-   "./object-fill" -> object-clobber-helper
-   "./array-fill" -> array-clobber-helper
-   "./misc-fill"
-   "./util" ->
+   .object-fill -> object-clobber-helper
+   .array-fill -> array-clobber-helper
+   .misc-fill
+   .util ->
       identify, fork-identify, tuck
       next-id, ID, FORKID, VERSION, DIRECTORY, CACHE
       methods
       longest-run
-   "./proxy" ->
+   .proxy ->
       deprox
-   "./iter" ->
+   .iter ->
       iterate-properties
 
 provide:

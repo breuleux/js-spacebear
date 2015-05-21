@@ -2,9 +2,9 @@
 require:
    lodash ->
       flatten, kebab-case
-   "./util" ->
+   .util ->
       ID, CACHE, tuck, identify, fork-identify, methods
-   "./directory" ->
+   .directory ->
       object-clobber-helper
       array-clobber-helper
 
