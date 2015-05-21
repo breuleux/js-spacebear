@@ -33,6 +33,10 @@ insert-at-index{node, i, elem} =
    if elem !== anchor:
       node.insert-before{elem, anchor}
 
+to-string{match x} =
+   undefined? -> ""
+   else -> String{x}
+
 
 class VNode:
 
@@ -54,7 +58,7 @@ class VNode:
       items{@props} each {k, v} -> @set-attribute{k, v}
 
       if @raw:
-         node.innerHTML = String{@raw}
+         node.innerHTML = to-string{@raw}
 
       @children-elements{} each c ->
          node.append-child{c}
@@ -84,7 +88,7 @@ class VNode:
       Element? ->
          c
       else ->
-         document.create-text-node{String{c}}
+         document.create-text-node{to-string{c}}
 
    [^methods.proxy]{tracks, patch, prevent-dirty-reads} =
       throw E.not-implemented{"VNode instances cannot be proxied."}
@@ -136,7 +140,7 @@ class VNode:
          "raw/" ->
             @raw = dir.replace{@raw, new-value}
             if @dom-node:
-               @dom-node.innerHTML = String{@raw}
+               @dom-node.innerHTML = to-string{@raw}
          R"^attribute/(.*)$"! {_, attr} ->
             @props[attr] = dir.replace{@props[attr], new-value}
             @set-attribute{attr, @props[attr]}
@@ -161,7 +165,7 @@ class VNode:
       if @raw != new-vdom.raw:
          @raw = dir.clobber{@raw, new-vdom.raw}
          if @dom-node:
-            @dom-node.innerHTML = String{@raw}
+            @dom-node.innerHTML = to-string{@raw}
 
       object-clobber-helper{
          @props, new-vdom.props, items
