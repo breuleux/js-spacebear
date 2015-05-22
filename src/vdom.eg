@@ -179,6 +179,10 @@ class VNode:
             @props[attr] = dir.clobber{@props[attr], value}
             @set-attribute{attr, @props[attr]}
 
+      child-nodes =
+         if @dom-node: @dom-node.child-nodes each c -> c
+         else: null
+
       array-clobber-helper{@children, new-vdom.children} each
 
          #clobber{i, value} ->
@@ -187,7 +191,7 @@ class VNode:
             if @dom-node and old-child !== new-child:
                @dom-node.replace-child{
                   @child-to-element{new-child}
-                  @child-to-element{old-child}
+                  child-nodes[i]
                }
 
          #splice{var start, var n, inserts} ->
