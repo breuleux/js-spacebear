@@ -29,6 +29,8 @@ class Patch:
       {expr-value, @data} = {@data, new-data}
    list{} =
       items{@data}
+   empty{} =
+      return keys{@data}.length === 0
 
 
 class Tracks:
@@ -44,6 +46,8 @@ class Tracks:
       id and [@data[id] or= {=}]
    list{} =
       items{@data}
+   empty{} =
+      return keys{@data}.length === 0
 
 
 

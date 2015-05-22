@@ -22,6 +22,8 @@ provide:
    args-key
    System, with-system, current-system
 
+   State, DependentState, reactive-function2
+
 
 
 arg-key{match x} =
@@ -117,6 +119,7 @@ class Reactive:
 
 
 
+
 system-stack = {}
 
 with-system{sys, fn} =
@@ -189,4 +192,106 @@ reactive-function{render} =
       the-self = system.model{}
       r.render{the-self, args}.value
    rval.orig = render
+   rval.reactive = r
+   rval
+
+
+
+
+
+
+
+
+
+class State:
+
+   constructor{@origin, @options = {=}} =
+      {clobber-patch => @clobber-patch = false} = @options
+      @listeners = {}
+
+      @patch-stack = {}
+      @patch = Patch{}
+
+      @dir = Directory{clobber-patch = @clobber-patch}
+      @basis = @dir.acquire-copy{@origin}
+      @basis-proxy = proxy{@basis, null, @patch}
+      @patch.shift{}
+
+   add-listener{listener} =
+      @listeners.push with listener
+
+   get{} =
+      @basis
+
+   model{} =
+      @basis-proxy
+
+   commit{} =
+      ;; if @patch.empty{}: return false
+      patch = Patch{@patch.shift{}}
+      @dir.patch{patch}
+      @listeners each listener ->
+         listener{@model{}, patch}
+      true
+
+   transact{fn} =
+      ;; if not @patch.empty{}:
+      ;;    throw E.dirty{"There are uncommitted changes for this State."}
+      fn{@model{}}
+      @commit{}
+
+
+
+class DependentState < State:
+
+   constructor{@input, @render, @options = {=}} =
+
+      {clobber-patch => @clobber-patch = false
+       action => @action = {x} -> x} = @options
+      @listeners = {}
+
+      @patch-stack = {}
+      @patch = Patch{}
+
+      @dir = Directory{clobber-patch = @clobber-patch}
+
+      @recompute{}
+
+      @input.add-listener{@listen.bind{@}}
+
+   recompute{} =
+      @_previous-input = @input.get{}
+      rend = with-system{null, -> @render.force{@input.model{}}}
+      r = @dir.acquire with
+         Root{rend, @action, true}
+      @basis = CachedResult{null, null, null, r, null}
+
+   get{} =
+      @basis.value.root
+
+   model{} =
+      proxy{@basis.value.root, null, @patch}
+
+   listen{model, patch} =
+      ;; if not @patch.empty{}:
+      ;;    throw E.dirty{"There are uncommitted changes for this State."}
+      if @_previous-input !== @input.get{}:
+         @recompute{}
+      with-system{null} with ->
+         @basis.transform-patch{patch, @patch, @input.dir}
+      @commit{}
+
+
+reactive-function2{render} =
+   r = Reactive{render}
+   rval{*args} =
+      system = current-system{}
+      the-self = null ;;system.input.model{}
+      r.render{the-self, args}.value
+   rval.orig = render
+   rval.reactive = r
+   rval.force{*args} =
+      system = current-system{}
+      the-self = null ;;system.input.model{}
+      r.render{the-self, args, true}.value
    rval
