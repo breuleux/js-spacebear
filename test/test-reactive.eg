@@ -12,6 +12,7 @@ require:
       Patch, Tracks
       reactive-function, System
    .people ->
+      static-dir
       alice, bob, clara, donald, emily, francis, gerard, helen
       aid, bid, cid, did, eid, fid, gid, hid
 
@@ -335,7 +336,7 @@ describe "Reactive functions":
 
          sys.transact with {people} ->
             people.get{1}.name = "clairette"
-            people.push with {francis, gerard}
+            people.push with static-dir.acquire{{francis, gerard}}
 
          assert sys.get{} == {
             {'Hello, my name is alice!'}

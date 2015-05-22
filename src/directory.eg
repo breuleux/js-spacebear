@@ -102,7 +102,7 @@ class Directory:
       if v and not v[DIRECTORY]:
          ;; v can't belong to more than one directory, so we
          ;; acquire it with a throwaway Directory
-         Directory{}.acquire{v}
+         Directory{}.enter{v, true}
       @acquire{v}
 
    acquire{deprox! match v} =
@@ -110,12 +110,13 @@ class Directory:
          v
       identify! [{^DIRECTORY => d} or d is undefined] and match is d ->
          === [@] ->
-            ;; if{@duplicate, @fork{@get-canon{v}}, [@enter{v, false}; v]}
-            if{@duplicate, @fork{@get-canon{v}}, v}
+            if{@duplicate, @fork{@get-canon{v}}, [@enter{v, false}; v]}
+            ;; if{@duplicate, @fork{@get-canon{v}}, v}
          undefined? when @duplicate ->
             @fork{@get-canon{v}}
          undefined? ->
-            @enter{v}
+            ;; @enter{v}
+            @enter{v, false}
             iterate-properties{v} each {k, deprox! v2, replace} ->
                match @acquire{v2}:
                   !== v2 ->
