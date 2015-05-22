@@ -108,7 +108,12 @@ array-clobber-helper{arr, new-arr, duplicate = true} =
       ;; Clobber what we can, shifting the splice
       while n > 0 and old-current < old-i and fresh.length > 0:
          match arr[old-current]:
-            x and {^ID => Number? id} when disposable[id] ->
+            null? or undefined? or String? or Number? or Boolean? or Function? ->
+               operations.push with #clobber{new-current, fresh.shift{}}
+               old-current += 1
+               new-current += 1
+               n -= 1
+            {^ID => Number? id} when disposable[id] ->
                operations.push with #clobber{new-current, fresh.shift{}}
                old-current += 1
                new-current += 1
