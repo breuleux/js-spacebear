@@ -1,7 +1,7 @@
 
 require:
    lodash ->
-      flatten, kebab-case
+      kebab-case
    .util ->
       ID, CACHE, tuck, identify, fork-identify, methods
    .directory ->
@@ -36,6 +36,25 @@ insert-at-index{node, i, elem} =
 to-string{match x} =
    undefined? -> ""
    else -> String{x}
+
+
+flatten{match arr, accept-cached = true} =
+   match Array? ->
+      match {^CACHE => true?} ->
+         when not accept-cached ->
+            throw E.cannot-flatten{"Cannot be flattened"}
+         else ->
+            arr each
+               Array? x -> throw E.cannot-flatten{"Child cannot be flattened into"}
+               else -> continue
+            arr
+      else ->
+         var acc = {}
+         arr each x -> acc ++= flatten{x, false}
+         acc
+   other ->
+      other
+
 
 
 class VNode:
@@ -99,6 +118,7 @@ class VNode:
          patch.get-for{@}[k] = #update{new-v}
 
       var results = {
+         ;; {'children/', @children, gen-patch{'children/'}}
          {'raw/', @raw, gen-patch{'raw/'}}
       }
 
@@ -141,6 +161,8 @@ class VNode:
             @raw = dir.replace{@raw, new-value}
             if @dom-node:
                @dom-node.innerHTML = to-string{@raw}
+         ;; "children/" ->
+         ;;    @_clobber-children{new-value, dir}
          R"^attribute/(.*)$"! {_, attr} ->
             @props[attr] = dir.replace{@props[attr], new-value}
             @set-attribute{attr, @props[attr]}
@@ -151,6 +173,40 @@ class VNode:
                   @child-to-element{@children[i]}
                   @dom-node.child-nodes[i]
                }
+
+   _clobber-children{new-children, dir} =
+
+      child-nodes =
+         if @dom-node: @dom-node.child-nodes each c -> c
+         else: null
+
+      array-clobber-helper{@children, new-children} each
+
+         #clobber{i, value} ->
+            old-child = @children[i]
+            new-child and @children[i] = dir.clobber{old-child, value}
+            if @dom-node and old-child !== new-child:
+               @dom-node.replace-child{
+                  @child-to-element{new-child}
+                  child-nodes[i]
+               }
+
+         #splice{var start, var n, inserts} ->
+            acquired = inserts each
+               #keep{x} -> x
+               #acquire{x} -> dir.acquire{x}
+            @children.splice{start, n, *acquired}
+            if @dom-node:
+               while n > 0
+                   \ and child-at{@dom-node, start}
+                         \ === @child-to-element{acquired[0]}:
+                  start += 1
+                  n -= 1
+               0...n each _ ->
+                  remove-at-index{@dom-node, start}
+               enumerate{acquired} each {i, c} ->
+                  insert-at-index{@dom-node, start + i, @child-to-element{c}}
+      
 
    [^methods.clobber]{new-vdom, dir} =
       if not VNode? new-vdom:
@@ -179,36 +235,7 @@ class VNode:
             @props[attr] = dir.clobber{@props[attr], value}
             @set-attribute{attr, @props[attr]}
 
-      child-nodes =
-         if @dom-node: @dom-node.child-nodes each c -> c
-         else: null
-
-      array-clobber-helper{@children, new-vdom.children} each
-
-         #clobber{i, value} ->
-            old-child = @children[i]
-            new-child and @children[i] = dir.clobber{old-child, value}
-            if @dom-node and old-child !== new-child:
-               @dom-node.replace-child{
-                  @child-to-element{new-child}
-                  child-nodes[i]
-               }
-
-         #splice{var start, var n, inserts} ->
-            acquired = inserts each
-               #keep{x} -> x
-               #acquire{x} -> dir.acquire{x}
-            @children.splice{start, n, *acquired}
-            if @dom-node:
-               while n > 0
-                   \ and child-at{@dom-node, start}
-                         \ === @child-to-element{acquired[0]}:
-                  start += 1
-                  n -= 1
-               0...n each _ ->
-                  remove-at-index{@dom-node, start}
-               enumerate{acquired} each {i, c} ->
-                  insert-at-index{@dom-node, start + i, @child-to-element{c}}
+      @_clobber-children{new-vdom.children, dir}
 
       tuck{@, ID, new-vdom[ID]}
       dir.enter{@}
