@@ -23,7 +23,7 @@ provide:
    System, with-system, current-system
 
    State, DependentState, reactive-function2
-
+   transact-all
 
 
 arg-key{match x} =
@@ -217,6 +217,8 @@ class State:
       @basis-proxy = proxy{@basis, null, @patch}
       @patch.shift{}
 
+      State.all.push{@}
+
    add-listener{listener} =
       @listeners.push with listener
 
@@ -241,12 +243,14 @@ class State:
       @commit{}
 
 
+State.all = {}
+
 
 class DependentState < State:
 
    constructor{@input, @render, @options = {=}} =
 
-      {clobber-patch => @clobber-patch = false
+      {clobber-patch => @clobber-patch = true
        action => @action = {x} -> x} = @options
       @listeners = {}
 
@@ -255,15 +259,17 @@ class DependentState < State:
 
       @dir = Directory{clobber-patch = @clobber-patch}
 
-      @recompute{}
+      @compute{}
 
       @input.add-listener{@listen.bind{@}}
 
-   recompute{} =
+      State.all.push{@}
+
+   compute{} =
       @_previous-input = @input.get{}
-      rend = with-system{null, -> @render.force{@input.model{}}}
+      rend = with-state{@, -> @render{@input.model{}}}
       r = @dir.acquire with
-         Root{rend, @action, true}
+         Root{rend, @action}
       @basis = CachedResult{null, null, null, r, null}
 
    get{} =
@@ -276,8 +282,8 @@ class DependentState < State:
       ;; if not @patch.empty{}:
       ;;    throw E.dirty{"There are uncommitted changes for this State."}
       if @_previous-input !== @input.get{}:
-         @recompute{}
-      with-system{null} with ->
+         @compute{}
+      with-state{@} with ->
          @basis.transform-patch{patch, @patch, @input.dir}
       @commit{}
 
@@ -285,13 +291,38 @@ class DependentState < State:
 reactive-function2{render} =
    r = Reactive{render}
    rval{*args} =
-      system = current-system{}
-      the-self = null ;;system.input.model{}
+      state = current-state{}
+      the-self = state??.input??.model??{}
       r.render{the-self, args}.value
    rval.orig = render
    rval.reactive = r
    rval.force{*args} =
-      system = current-system{}
-      the-self = null ;;system.input.model{}
+      state = current-state{}
+      the-self = state??.input??.model??{}
       r.render{the-self, args, true}.value
    rval
+
+
+state-stack = {}
+
+with-state{sys, fn} =
+   state-stack.unshift{sys}
+   result = fn{}
+   state-stack.shift{}
+   result
+
+current-state{} =
+   state-stack[0]
+
+var is-transaction = false
+
+transact-all{fn} =
+   if is-transaction:
+      throw E.transaction.in-progress{"There is already a transaction in progress."}
+   is-transaction = true
+   try:
+      fn{}
+      State.all each state ->
+         state.commit{}
+   finally:
+      is-transaction = false
