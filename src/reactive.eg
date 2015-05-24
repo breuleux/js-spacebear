@@ -52,9 +52,11 @@ class CachedResult:
       @walk{@value}
 
    walk{identify! v} =
-      iterate-properties{v} each {k, match obj, gen-patch} ->
+      iterate-properties{v} each {k, match obj, gen-patch, ignore-children = false} ->
          {^CACHE => cached} when cached ->
             @children.push with {k, v[ID], cached, gen-patch}
+         when ignore-children ->
+            pass
          else ->
             @walk{obj}
       undefined

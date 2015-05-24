@@ -53,8 +53,9 @@ class Directory:
                tuck{value, DIRECTORY, @}
                @dir[value[ID]] = {1, value}
                if add-children:
-                  iterate-properties{value} each {k, v2, replace} ->
-                     @enter{v2, true}
+                  iterate-properties{value} each
+                     {k, v2, replace, ignore-children = false} ->
+                        @enter{v2, not ignore-children}
                value
             {count, value} ->
                @dir[value[ID]] = {count + 1, value}
@@ -68,8 +69,9 @@ class Directory:
                tuck{value, DIRECTORY, @}
                sub[fid] = {1, value}
                if add-children:
-                  iterate-properties{value} each {k, v2, replace} ->
-                     @enter{v2, true}
+                  iterate-properties{value} each
+                     {k, v2, replace, ignore-children = false} ->
+                        @enter{v2, not ignore-children}
                value
             {count, value} ->
                sub[fid] = {count + 1, value}
@@ -95,8 +97,9 @@ class Directory:
                   delete d[k]
                   delete v[DIRECTORY]
                   if remove-children:
-                     iterate-properties{v} each {k, v2, replace} ->
-                        @exit{v2, true}
+                     iterate-properties{v} each
+                        {k, v2, replace, ignore-children = false} ->
+                           @exit{v2, not ignore-children}
 
    acquire-copy{deprox! v} =
       if v and not v[DIRECTORY]:
@@ -105,25 +108,25 @@ class Directory:
          Directory{}.enter{v, true}
       @acquire{v}
 
-   acquire{deprox! match v} =
+   acquire{deprox! match v, add-children = true} =
       null? or undefined? or Number? or String? or Symbol? or Boolean? ->
          v
       identify! [{^DIRECTORY => d} or d is undefined] and match is d ->
          === [@] ->
             if{@duplicate, @fork{@get-canon{v}}, [@enter{v, false}; v]}
-            ;; if{@duplicate, @fork{@get-canon{v}}, v}
          undefined? when @duplicate ->
             @fork{@get-canon{v}}
          undefined? ->
-            ;; @enter{v}
             @enter{v, false}
-            iterate-properties{v} each {k, deprox! v2, replace} ->
-               match @acquire{v2}:
-                  !== v2 ->
-                     throw E.acquire with
-                        "Child of acquired node belongs to other directory."
-                  else ->
-                     pass
+            if add-children:
+               iterate-properties{v} each
+                  {k, deprox! v2, replace, ignore-children = false} ->
+                     match @acquire{v2, not ignore-children}:
+                        !== v2 ->
+                           throw E.acquire with
+                              'Child of {v}, {v2}, belongs to other directory.'
+                        else ->
+                           pass
             v
          else ->
             @fork{@get-canon{v}}
@@ -133,17 +136,22 @@ class Directory:
          undefined? -> @acquire{v}
          x -> x
 
-   fork{identify! match value} =
+   fork{match value} =
       null? or undefined? ->
          value
+      do:
+         identify! value
       when not @duplicate and @get{value[ID]} ->
          @enter{@get{value[ID]}, false}
       else ->
          deprox{value}[methods.fork]{@}
 
-   clobber{identify! match value, identify! new-value} =
+   clobber{match value, new-value} =
       null? or undefined? ->
          new-value
+      do:
+         identify! value
+         identify! new-value
       when value[ID] and value[ID] === new-value[ID] ->
          value
       else ->
@@ -166,6 +174,17 @@ class Directory:
       p.list{} each {id, obj-patch} ->
          @get-all{id} each obj ->
             patch-shallow{obj, p, @}
+
+   [^methods.fork]{dir} =
+      throw E.fork{"Cannot fork directories."}
+   [^methods.proxy]{tracks, patch, prevent-dirty-reads} =
+      throw E.proxy{"Cannot proxy directories."}
+   [^methods.patch]{p, dir} =
+      throw E.patch{"Cannot patch directories."}
+   [^methods.clobber]{new, dir} =
+      throw E.clobber{"Cannot clobber directories."}
+   [^methods.iterate-properties]{} =
+      throw E.iterate{"Cannot iterate directories."}
 
 
 ;;;;;;;;;;;;;;;;;;;
