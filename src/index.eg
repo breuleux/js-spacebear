@@ -30,6 +30,8 @@ require:
       State, DependentState, transact-all
    .map ->
       Map
+   .render ->
+      RenderState
 
 provide:
    identify, tuck
@@ -50,6 +52,7 @@ provide:
    transact-all
    current-system
    Map
+   RenderState
 
    percent as [%]
    reactive

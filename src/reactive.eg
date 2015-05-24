@@ -268,8 +268,8 @@ class DependentState < State:
    compute{} =
       @_previous-input = @input.get{}
       rend = with-state{@, -> @render{@input.model{}}}
-      r = @dir.acquire with
-         Root{rend, @action}
+      r = @dir.acquire-copy with
+         Root{rend, @action, true}
       @basis = CachedResult{null, null, null, r, null}
 
    get{} =

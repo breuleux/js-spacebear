@@ -1,0 +1,28 @@
+
+require:
+   .reactive -> DependentState
+
+globals:
+   document, Node
+
+provide:
+   RenderState
+
+
+class RenderState < DependentState:
+
+   constructor{@input, @render, mount-node} =
+      @mount-node = match mount-node:
+         String? s -> document.get-element-by-id{s}
+         Node? -> mount-node
+         else -> throw E.type{"Expected a string or a Node"}
+      DependentState.call{@, @input, @render, action{x} = @replace-target{x}}
+
+   replace-target{x} =
+      contents = x.install{}
+      if contents === @mount-node.child-nodes[0]:
+         return
+      if @mount-node.child-nodes.length > 0:
+         @mount-node.remove-child{@mount-node.child-nodes[0]}
+      @mount-node.append-child{contents}
+
