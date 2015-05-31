@@ -269,7 +269,7 @@ class DependentState < State:
 
    compute{} =
       @_previous-input = @input.get{}
-      rend = with-state{@, -> @render{@input.model{}}}
+      rend = with-state{@, -> @render.call{null, @input.model{}}}
       r = @dir.acquire with
          Root{rend, @action, true}
       @basis = CachedResult{null, null, null, r, null}
@@ -294,7 +294,11 @@ reactive-function2{render} =
    r = Reactive{render}
    rval{*args} =
       state = current-state{}
-      the-self = state??.input??.model??{}
+      the-self =
+         if this === undefined or this === null:
+            state??.input??.model??{}
+         else:
+            this
       r.render{the-self, args}.value
    rval.orig = render
    rval.reactive = r
