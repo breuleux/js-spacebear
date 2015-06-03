@@ -104,8 +104,13 @@ class VNode:
       .id or .value or R"^on"? ->
          if @dom-node[attr] != value:
             @dom-node[attr] = value
-      else ->
-         @dom-node.set-attribute{attr, value}
+      match is value ->
+         === true ->
+            @dom-node.set-attribute{attr, attr}
+         === false ->
+            @dom-node.remove-attribute{attr}
+         else ->
+            @dom-node.set-attribute{attr, value}
 
    children-elements{} =
       @children each c -> @child-to-element{c}
@@ -178,10 +183,10 @@ class VNode:
          R"^child/(.*)$"! {_, Number! i} ->
             @children[i] = dir.replace{@children[i], new-value}
             if @dom-node:
-               @dom-node.replace-child{
-                  @child-to-element{@children[i]}
-                  @dom-node.child-nodes[i]
-               }
+               old-child = @dom-node.child-nodes[i]
+               new-child = @child-to-element{@children[i]}
+               if new-child !== old-child:
+                  @dom-node.replace-child{new-child, old-child}
 
    _clobber-children{new-children, dir} =
 
