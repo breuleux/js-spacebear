@@ -22,7 +22,7 @@ require:
    .root ->
       Root
    .vdom ->
-      VNode, ENode as EVNode
+      VNode, ENode as EVNode, custom-components
    "./reactive" ->
       System, reactive-function, reactive-function2
       current-system
@@ -47,6 +47,7 @@ provide:
    intersect
    Root
    VNode, EVNode as ENode
+   custom-components
    System, reactive-function, reactive-function2
    State, DependentState
    transact-all
@@ -56,6 +57,7 @@ provide:
 
    percent as [%]
    reactive
+   component
    transact
 
 
@@ -105,6 +107,25 @@ macro{reactive-function2} reactive{expr} =
             print expr
             throw E.syntax.invalid-reactive{"invalid", node = expr}
    }
+
+macro{deprox, custom-components, reactive-function2} component{`{^name, ^body}`} =
+   let {=> deprox
+        "custom-components" => cc
+        "reactive-function2" => rfn} = @deps
+   {it, self} = @mark{`@`, `self`}
+   #symbol{s} = name
+   ```
+   let [^name] =
+      [^rfn]! rval{props, children} =
+         let ^it and ^self = {
+            props = props
+            children = children
+            root = this
+         }
+         ^body
+      [^cc][^=s] = rval
+      rval
+   ```
 
 macro{transact-all} transact{#data{body}} =
    let {"transact-all" => tra} = @deps

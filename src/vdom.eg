@@ -11,9 +11,14 @@ require:
 provide:
    VNode
    EVNode as ENode
+   custom-components
 
 globals:
    document, Element
+
+
+
+custom-components = {=}
 
 
 ;;;;;;;;;;;
@@ -60,6 +65,9 @@ flatten{match arr, accept-cached = true} =
 class VNode:
 
    constructor{@tag, @props, flatten! @children, @options = {=}} =
+      match custom-components[@tag]:
+         undefined? -> pass
+         component -> return component{@props, @children}
       {raw => @raw = false
        namespace => @namespace = null} = @options
       @dom-node = null
