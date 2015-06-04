@@ -101,7 +101,7 @@ class VNode:
                '{kebab-case{k}}:{v}'
       .class or .class-name ->
          @dom-node.class-name = value.join{" "}
-      .id or .value or R"^on"? ->
+      .id or .value or .checked or R"^on"? ->
          if @dom-node[attr] != value:
             @dom-node[attr] = value
       match is value ->
