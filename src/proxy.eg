@@ -146,7 +146,10 @@ proxy-proto-for{obj} =
       null? or undefined? -> null
       when Object.has-own-property.call{orig-proto, PROTOID} ->
          orig-proto[PROTOID]
-      else -> tuck{orig-proto, PROTOID, next-id{}}
+      else ->
+         let pid = next-id{}
+         tuck{orig-proto, PROTOID, pid}
+         pid
 
    the-keys = keys{obj}.sort{}
    key = '{pid}\x01{the-keys.join{"\x00"}}'
@@ -167,7 +170,7 @@ proxy-proto-for{obj} =
                }
          proto._get = basic-get
          proto._set = basic-set
-         expr-value proxy-proto-cache[key] = proto
+         proxy-proto-cache[key] = proto
          proto
       proto ->
          proto
