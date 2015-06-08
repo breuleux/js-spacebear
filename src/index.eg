@@ -118,8 +118,8 @@ macro{deprox, custom-components, reactive-function2} component{`{^name, ^body}`}
    let [^name] =
       [^rfn]! rval{props, children} =
          let ^it and ^self = {
-            props = props
-            children = children
+            props = [^deprox]{props}
+            children = [^deprox]{children}
             root = this
          }
          ^body
