@@ -1,6 +1,6 @@
 
 require:
-   .reactive -> DependentState
+   spacecore -> DependentState
 
 globals:
    document, Node

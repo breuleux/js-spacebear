@@ -1,60 +1,16 @@
 
 require:
-   .object-fill
-   .array-fill
-   .misc-fill
-   .util ->
-      tuck, identify, next-id
-      ID, FORKID, VERSION, SOURCE, DIRECTORY, CACHE
-      methods, fields
-   "./struct" ->
-      make-struct, struct
-   "./proxy" ->
-      Patch, Tracks
-      proxy, deprox, reprox
-      read-proxy, write-proxy
-   .iter ->
-      iterate-properties
-   .directory ->
-      Directory
-   .relevant ->
-      intersect, changed-relevantly
-   .root ->
-      Root
+   spacecore ->
+      reactive-function2
+      deprox, transact-all
    .vdom ->
       VNode, ENode as EVNode, custom-components
-   "./reactive" ->
-      System, reactive-function, reactive-function2
-      current-system
 
-      State, DependentState, transact-all
-   .map ->
-      Map
-   .render ->
-      RenderState
+provide = spacecore
 
 provide:
-   identify, tuck
-   ID, FORKID, VERSION, SOURCE, DIRECTORY, CACHE
-   methods, fields
-   make-struct, struct
-   Patch, Tracks
-   proxy, deprox, reprox
-   read-proxy, write-proxy
-   Directory
-   iterate-properties
-   changed-relevantly
-   intersect
-   Root
    VNode, EVNode as ENode
    custom-components
-   System, reactive-function, reactive-function2
-   State, DependentState
-   transact-all
-   current-system
-   Map
-   RenderState
-
    percent as [%]
    reactive
    component
@@ -64,28 +20,6 @@ provide:
 macro{EVNode} percent{#data{x, y}} =
    let {=> EVNode} = @deps
    `[^x % ^y] where ENode = [^EVNode]`
-
-
-;; macro{reactive-function} reactive{expr} =
-;;    let {"reactive-function" => rfn} = @deps
-;;    {system, it, self} = @mark{`system`, `@`, `self`}
-;;    @multimacro with {
-;;       project{`^args -> ^body`} =
-;;          ```
-;;          [^rfn] with
-;;             ^args ->
-;;                let ^system = this.__SYSTEM
-;;                let ^it and ^self = this
-;;                ^body
-;;          ```
-;;    }
-
-;; macro{} transact{#data{body}} =
-;;    system = @mark{`system`}
-;;    ```
-;;    [^system].transact with {_} -> ^body
-;;    ```
-
 
 macro{reactive-function2} reactive{expr} =
    let {"reactive-function2" => rfn} = @deps

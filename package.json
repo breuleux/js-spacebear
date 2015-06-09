@@ -4,6 +4,7 @@
   "description": "SPACE BEAR",
   "main": "lib/index.js",
   "dependencies": {
+    "spacecore": ">=0.0.1",
     "earlgrey-runtime": ">=0.0.7",
     "lodash": "^3.8.0"
   },

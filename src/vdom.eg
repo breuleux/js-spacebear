@@ -2,9 +2,8 @@
 require:
    lodash ->
       kebab-case
-   .util ->
+   spacecore ->
       ID, CACHE, tuck, identify, fork-identify, methods
-   .directory ->
       object-clobber-helper
       array-clobber-helper
 
