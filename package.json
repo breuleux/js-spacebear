@@ -4,15 +4,16 @@
   "description": "SPACE BEAR",
   "main": "lib/index.js",
   "dependencies": {
-    "spacecore": ">=0.0.1",
-    "earlgrey-runtime": ">=0.0.7",
+    "spacecore": ">=0.0.2",
+    "earlgrey-runtime": ">=0.0.8",
     "lodash": "^3.8.0"
   },
   "devDependencies": {
-    "earlgrey": ">=0.0.2",
+    "earlgrey": ">=0.0.5",
     "earl-mocha": ">=0.0.2"
   },
   "scripts": {
+    "prepublish": "earl compile -5rvso lib/ src/",
     "test": "mocha"
   },
   "repository": {
