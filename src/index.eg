@@ -5,11 +5,14 @@ require:
       deprox, transact-all
    .vdom ->
       VNode, ENode as EVNode, custom-components
+   .render ->
+      RenderState
 
 provide = spacecore
 
 provide:
    VNode, EVNode as ENode
+   RenderState
    custom-components
    percent as [%]
    reactive
