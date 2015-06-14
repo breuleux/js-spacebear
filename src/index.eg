@@ -66,4 +66,4 @@ macro{deprox, custom-components, reactive-function2} component{`{^name, ^body}`}
 
 macro{transact-all} transact{#data{body}} =
    let {"transact-all" => tra} = @deps
-   `[^tra] with {_} -> ^body`
+   `[^tra] with [{_} -> ^body].bind{this}`
