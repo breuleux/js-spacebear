@@ -46,17 +46,23 @@ macro{reactive-function2} reactive{expr} =
    }
 
 macro{deprox, custom-components, reactive-function2} component{`{^name, ^body}`} =
-   let {=> deprox
-        "custom-components" => cc
-        "reactive-function2" => rfn} = @deps
+
+   let {
+      => deprox
+      "custom-components" => cc
+      "reactive-function2" => rfn
+   } = @deps
+
    {it, self} = @mark{`@`, `self`}
    #symbol{s} = name
    ```
    let [^name] =
       [^rfn]! rval{props, children} =
          let ^it and ^self = {
-            props = [^deprox]{props}
-            children = [^deprox]{children}
+            ;; props = [^deprox]{props}
+            ;; children = [^deprox]{children}
+            = props
+            = children
             root = this
          }
          ^body

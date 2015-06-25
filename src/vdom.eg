@@ -3,9 +3,10 @@ require:
    lodash ->
       kebab-case
    spacecore ->
-      ID, CACHE, tuck, identify, fork-identify, methods
+      ID, CACHE, tuck, identify, fork-identify, fields, methods
       object-clobber-helper
       array-clobber-helper
+      arg-key, deprox
 
 provide:
    VNode
@@ -66,7 +67,17 @@ class VNode:
    constructor{@tag, @props, flatten! @children, @options = {=}} =
       match custom-components[@tag]:
          undefined? -> pass
-         component -> return component{@props, @children}
+         component ->
+            ;; if not @props[ID]:
+            ;;    @props[fields.key] =
+            ;;       xs.join{"\x01"} where
+            ;;          xs = items{@props} each {k, v} ->
+            ;;             '{k}\x02{arg-key{v}}'
+            ;; if not @children[ID]:
+            ;;    @children[fields.key] =
+            ;;       xs.join{"\x01"} where
+            ;;          xs = @children each c -> arg-key{c}
+            return component{deprox{@props}, deprox{@children}}
       {raw => @raw = false
        namespace => @namespace = null} = @options
       @dom-node = null
