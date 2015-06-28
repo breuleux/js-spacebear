@@ -68,16 +68,8 @@ class VNode:
       match custom-components[@tag]:
          undefined? -> pass
          component ->
-            ;; if not @props[ID]:
-            ;;    @props[fields.key] =
-            ;;       xs.join{"\x01"} where
-            ;;          xs = items{@props} each {k, v} ->
-            ;;             '{k}\x02{arg-key{v}}'
-            ;; if not @children[ID]:
-            ;;    @children[fields.key] =
-            ;;       xs.join{"\x01"} where
-            ;;          xs = @children each c -> arg-key{c}
-            return component{deprox{@props}, deprox{@children}}
+            return component{@props, @children}
+
       {raw => @raw = false
        namespace => @namespace = null} = @options
       @dom-node = null
